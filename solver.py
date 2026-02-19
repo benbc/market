@@ -104,3 +104,39 @@ def market_income(pos: tuple, placements: dict) -> int:
         if building in MULTIPLIER_RESOURCE and is_adjacent(pos, other_pos):
             total += multiplier_level(other_pos, building, placements)
     return min(total, MARKET_CAP)
+
+from itertools import product as iproduct
+
+MULTIPLIERS = ('sawmill', 'windmill', 'forge')
+
+def city_placements(tiles: dict, city_territory_positions: set) -> list:
+    """
+    Enumerate all valid (sawmill, windmill, forge, market) tile assignments for one city.
+    tiles: dict of pos->terrain for all tiles in the game (not just this city).
+    city_territory_positions: set of positions belonging to this city.
+    Returns list of dicts with keys sawmill, windmill, forge, market (values: pos or None).
+    """
+    def candidates(building):
+        return [None] + [
+            pos for pos in city_territory_positions
+            if pos in tiles and terrain_accepts(tiles[pos], building)
+        ]
+
+    saw_cands = candidates('sawmill')
+    win_cands = candidates('windmill')
+    for_cands = candidates('forge')
+    mkt_cands = candidates('market')
+
+    results = []
+    for saw, win, frg, mkt in iproduct(saw_cands, win_cands, for_cands, mkt_cands):
+        # No two roles on the same tile
+        placed = [p for p in (saw, win, frg, mkt) if p is not None]
+        if len(placed) != len(set(placed)):
+            continue
+        # Market must be adjacent to at least one multiplier (if market is placed)
+        if mkt is not None:
+            multiplier_positions = [p for p in (saw, win, frg) if p is not None]
+            if not any(is_adjacent(mkt, mp) for mp in multiplier_positions):
+                continue
+        results.append({'sawmill': saw, 'windmill': win, 'forge': frg, 'market': mkt})
+    return results

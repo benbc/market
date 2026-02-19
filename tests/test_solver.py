@@ -1,4 +1,4 @@
-from solver import ELIGIBLE, terrain_accepts, is_adjacent, city_territory, assign_ownership, place_resource_buildings, multiplier_level, market_income
+from solver import ELIGIBLE, terrain_accepts, is_adjacent, city_territory, assign_ownership, place_resource_buildings, multiplier_level, market_income, city_placements
 
 def test_field_accepts_sawmill():
     assert 'sawmill' in ELIGIBLE['field']
@@ -207,3 +207,39 @@ def test_market_diagonal_multiplier_counts():
         (1, 2): 'lumber_hut',
     }
     assert market_income((0, 0), placements) == 1
+
+def _simple_tiles(positions, terrain='field+crop'):
+    return {pos: terrain for pos in positions}
+
+def test_single_tile_no_valid_market_alone():
+    tiles = _simple_tiles([(0, 0)])
+    combos = city_placements(tiles, city_territory_positions={(0, 0)})
+    assert all(c['market'] is None for c in combos)
+
+def test_two_adjacent_tiles_market_next_to_sawmill():
+    tiles = {(0, 0): 'field', (0, 1): 'field'}
+    territory = {(0, 0), (0, 1)}
+    combos = city_placements(tiles, city_territory_positions=territory)
+    valid = [c for c in combos if c['market'] is not None and c['sawmill'] is not None]
+    assert len(valid) >= 2
+
+def test_no_duplicate_tile_usage():
+    tiles = {(0, 0): 'field', (0, 1): 'field'}
+    territory = {(0, 0), (0, 1)}
+    combos = city_placements(tiles, city_territory_positions=territory)
+    for c in combos:
+        positions = [v for v in c.values() if v is not None]
+        assert len(positions) == len(set(positions)), f"Duplicate tile in {c}"
+
+def test_forge_on_forest():
+    tiles = {(0, 0): 'forest', (0, 1): 'field'}
+    territory = {(0, 0), (0, 1)}
+    combos = city_placements(tiles, city_territory_positions=territory)
+    forge_on_forest = [c for c in combos if c['forge'] == (0, 0)]
+    assert len(forge_on_forest) > 0
+
+def test_sawmill_not_on_forest():
+    tiles = {(0, 0): 'forest'}
+    territory = {(0, 0)}
+    combos = city_placements(tiles, city_territory_positions=territory)
+    assert all(c['sawmill'] != (0, 0) for c in combos)
