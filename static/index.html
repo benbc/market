@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Polytopia Market Optimiser</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="sidebar">
+    <h2>Terrain</h2>
+    <button class="tool-btn" data-tool="field">Field</button>
+    <button class="tool-btn" data-tool="field+crop">Field+Crop</button>
+    <button class="tool-btn" data-tool="forest">Forest</button>
+    <button class="tool-btn" data-tool="mountain">Mountain</button>
+    <button class="tool-btn" data-tool="mountain+metal">Mountain+Metal</button>
+    <button class="tool-btn" data-tool="water">Water</button>
+    <button class="tool-btn" data-tool="ocean">Ocean</button>
+    <button class="tool-btn" data-tool="empty">Erase</button>
+    <hr>
+    <h2>Cities</h2>
+    <button class="tool-btn" data-tool="city">Place City</button>
+    <hr>
+    <h2>Actions</h2>
+    <button id="btn-optimise">Optimise</button>
+    <button id="btn-clear-result">Clear Result</button>
+    <button id="btn-save">Save JSON</button>
+    <button id="btn-load">Load JSON</button>
+    <input type="file" id="file-input" accept=".json" style="display:none">
+    <hr>
+    <div id="grid-size">
+      <label>Rows: <input type="number" id="rows-input" value="10" min="3" max="40"></label>
+      <label>Cols: <input type="number" id="cols-input" value="10" min="3" max="40"></label>
+      <button id="btn-resize">Resize</button>
+    </div>
+  </div>
+
+  <div id="main">
+    <div id="toolbar">
+      <span>Active tool: <strong id="active-tool-label">none</strong></span>
+      <span id="hover-info"></span>
+    </div>
+    <div id="grid-container">
+      <div id="grid"></div>
+    </div>
+    <div id="summary">No optimisation run yet.</div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
