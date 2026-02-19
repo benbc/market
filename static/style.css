@@ -1,0 +1,116 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: monospace;
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#sidebar {
+  width: 200px;
+  padding: 12px;
+  border-right: 1px solid #ccc;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+#sidebar h2 { font-size: 14px; margin-bottom: 4px; }
+
+.tool-btn {
+  display: block;
+  width: 100%;
+  padding: 6px;
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid #ccc;
+  background: #f5f5f5;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.tool-btn.active { background: #333; color: #fff; border-color: #333; }
+
+#main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#toolbar {
+  padding: 8px 12px;
+  border-bottom: 1px solid #ccc;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+#toolbar button {
+  padding: 4px 12px;
+  cursor: pointer;
+  font-family: monospace;
+}
+
+#grid-container {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+}
+
+#grid {
+  display: inline-grid;
+  gap: 1px;
+  background: #ccc;
+}
+
+.tile {
+  width: 36px;
+  height: 36px;
+  background: #eee;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  position: relative;
+  user-select: none;
+}
+
+.tile:hover { filter: brightness(0.85); }
+
+.tile.terrain-field        { background: #d4c483; }
+.tile.terrain-field-crop   { background: #c8b400; }
+.tile.terrain-forest       { background: #4a7c59; }
+.tile.terrain-mountain     { background: #888; }
+.tile.terrain-metal        { background: #666; }
+.tile.terrain-water        { background: #6ab0de; }
+.tile.terrain-ocean        { background: #2a6099; }
+
+.tile .city-marker {
+  position: absolute;
+  top: 1px; left: 1px;
+  font-size: 10px;
+  background: rgba(255,255,255,0.8);
+  border-radius: 2px;
+  padding: 0 2px;
+  line-height: 1.2;
+}
+
+.tile .result-icon {
+  position: absolute;
+  bottom: 1px; right: 1px;
+  font-size: 10px;
+  background: rgba(255,255,0,0.8);
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+#summary {
+  padding: 8px 12px;
+  border-top: 1px solid #ccc;
+  font-size: 12px;
+  min-height: 40px;
+}
