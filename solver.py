@@ -17,3 +17,38 @@ def is_adjacent(a: tuple, b: tuple) -> bool:
     dr = abs(a[0] - b[0])
     dc = abs(a[1] - b[1])
     return max(dr, dc) == 1
+
+def city_territory(row: int, col: int, expanded: bool) -> set:
+    """Return set of (row, col) positions in a city's territory."""
+    radius = 2 if expanded else 1
+    return {
+        (row + dr, col + dc)
+        for dr in range(-radius, radius + 1)
+        for dc in range(-radius, radius + 1)
+    }
+
+def chebyshev(a: tuple, b: tuple) -> int:
+    return max(abs(a[0] - b[0]), abs(a[1] - b[1]))
+
+def assign_ownership(tile_positions: list, cities: list) -> dict:
+    """
+    Map each tile position to the id of its owning city.
+    Nearest city wins; ties broken by city order (first in list).
+    Tiles not in any city's territory are omitted.
+    """
+    ownership = {}
+    for pos in tile_positions:
+        best_city = None
+        best_dist = float('inf')
+        for city in cities:
+            city_pos = (city['row'], city['col'])
+            territory = city_territory(city['row'], city['col'], city['expanded'])
+            if pos not in territory:
+                continue
+            dist = chebyshev(pos, city_pos)
+            if dist < best_dist:
+                best_dist = dist
+                best_city = city['id']
+        if best_city is not None:
+            ownership[pos] = best_city
+    return ownership
