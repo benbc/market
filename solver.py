@@ -11,3 +11,9 @@ ELIGIBLE = {
 
 def terrain_accepts(terrain: str, building: str) -> bool:
     return building in ELIGIBLE.get(terrain, set())
+
+def is_adjacent(a: tuple, b: tuple) -> bool:
+    """8-directional adjacency (Moore neighbourhood). A tile is not adjacent to itself."""
+    dr = abs(a[0] - b[0])
+    dc = abs(a[1] - b[1])
+    return max(dr, dc) == 1
