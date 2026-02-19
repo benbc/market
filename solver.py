@@ -140,3 +140,124 @@ def city_placements(tiles: dict, city_territory_positions: set) -> list:
                 continue
         results.append({'sawmill': saw, 'windmill': win, 'forge': frg, 'market': mkt})
     return results
+
+import random
+
+def _build_full_placements(city_assignments: dict, tiles: dict) -> dict:
+    """
+    Given per-city production/market assignments (pos->building),
+    fill remaining eligible tiles with resource buildings.
+    Returns a single dict of pos->building covering everything.
+    """
+    occupied = dict(city_assignments)
+    resources = place_resource_buildings(tiles, occupied)
+    return {**occupied, **resources}
+
+def _score(city_assignments: dict, tiles: dict) -> int:
+    """Total Market income given current city assignments."""
+    placements = _build_full_placements(city_assignments, tiles)
+    return sum(
+        market_income(pos, placements)
+        for pos, bldg in placements.items()
+        if bldg == 'market'
+    )
+
+def _random_assignment(combos: list) -> dict:
+    return random.choice(combos) if combos else {}
+
+def _optimise_once(cities_combos: list, tiles: dict) -> tuple:
+    """
+    One run of coordinate descent from a random start.
+    cities_combos: list of (city_id, territory_positions, combos_list)
+    Returns (score, city_assignments dict pos->building)
+    """
+    current = {}
+    city_selected = []
+    for city_id, territory, combos in cities_combos:
+        chosen = _random_assignment(combos)
+        city_selected.append((city_id, territory, combos, chosen))
+        for role, pos in chosen.items():
+            if pos is not None:
+                current[pos] = role
+
+    improved = True
+    while improved:
+        improved = False
+        for i, (city_id, territory, combos, chosen) in enumerate(city_selected):
+            partial = {p: b for p, b in current.items()
+                       if p not in territory or b not in ('sawmill', 'windmill', 'forge', 'market')}
+
+            best_score = -1
+            best_combo = chosen
+            for combo in combos:
+                candidate = dict(partial)
+                for role, pos in combo.items():
+                    if pos is not None:
+                        candidate[pos] = role
+                s = _score(candidate, tiles)
+                if s > best_score:
+                    best_score = s
+                    best_combo = combo
+
+            new_assignments = dict(partial)
+            for role, pos in best_combo.items():
+                if pos is not None:
+                    new_assignments[pos] = role
+
+            if best_combo != chosen:
+                improved = True
+            city_selected[i] = (city_id, territory, combos, best_combo)
+            current = new_assignments
+
+    return _score(current, tiles), current, city_selected
+
+def optimise(data: dict, restarts: int = 5) -> dict:
+    """
+    Main solver entry point.
+    data: {'tiles': [...], 'cities': [...]}
+    Returns {'placements': [...], 'markets': [...], 'total_income': int}
+    """
+    tiles = {(t['row'], t['col']): t['terrain'] for t in data['tiles']}
+    cities = data['cities']
+    all_positions = list(tiles.keys())
+    ownership = assign_ownership(all_positions, cities)
+
+    cities_combos = []
+    for city in cities:
+        territory = city_territory(city['row'], city['col'], city['expanded'])
+        territory_in_game = {p for p in territory if p in tiles and ownership.get(p) == city['id']}
+        combos = city_placements(tiles, territory_in_game)
+        if not combos:
+            combos = [{'sawmill': None, 'windmill': None, 'forge': None, 'market': None}]
+        cities_combos.append((city['id'], territory_in_game, combos))
+
+    best_score = -1
+    best_placements = {}
+
+    for _ in range(restarts):
+        score, placements, _ = _optimise_once(cities_combos, tiles)
+        if score > best_score:
+            best_score = score
+            best_placements = placements
+
+    full = _build_full_placements(best_placements, tiles)
+
+    placement_list = [
+        {'row': pos[0], 'col': pos[1], 'building': bldg}
+        for pos, bldg in full.items()
+    ]
+    markets_list = []
+    for pos, bldg in full.items():
+        if bldg == 'market':
+            city_id = ownership.get(pos)
+            markets_list.append({
+                'row': pos[0], 'col': pos[1],
+                'city_id': city_id,
+                'income': market_income(pos, full),
+            })
+
+    return {
+        'placements': placement_list,
+        'markets': markets_list,
+        'total_income': best_score,
+    }

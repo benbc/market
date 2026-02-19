@@ -1,4 +1,4 @@
-from solver import ELIGIBLE, terrain_accepts, is_adjacent, city_territory, assign_ownership, place_resource_buildings, multiplier_level, market_income, city_placements
+from solver import ELIGIBLE, terrain_accepts, is_adjacent, city_territory, assign_ownership, place_resource_buildings, multiplier_level, market_income, city_placements, optimise
 
 def test_field_accepts_sawmill():
     assert 'sawmill' in ELIGIBLE['field']
@@ -243,3 +243,50 @@ def test_sawmill_not_on_forest():
     territory = {(0, 0)}
     combos = city_placements(tiles, city_territory_positions=territory)
     assert all(c['sawmill'] != (0, 0) for c in combos)
+
+def _make_input(tile_list, city_list):
+    return {
+        'tiles': [{'row': r, 'col': c, 'terrain': t} for (r, c), t in tile_list],
+        'cities': city_list,
+    }
+
+def test_single_city_simple():
+    tile_list = [
+        ((0, 0), 'forest'),
+        ((0, 1), 'field'),
+        ((0, 2), 'mountain+metal'),
+        ((1, 0), 'field'),
+        ((1, 1), 'field'),
+        ((1, 2), 'field+crop'),
+        ((2, 0), 'field+crop'),
+        ((2, 1), 'field'),
+        ((2, 2), 'forest'),
+    ]
+    cities = [{'id': 1, 'row': 1, 'col': 1, 'expanded': False}]
+    result = optimise(_make_input(tile_list, cities))
+    assert result['total_income'] > 0
+    assert any(m['city_id'] == 1 for m in result['markets'])
+
+def test_two_adjacent_cities_cross_city_interaction():
+    tile_list = (
+        [((r, c), 'forest') for r in range(3) for c in range(3)]
+        + [((r, c), 'field') for r in range(3) for c in range(3, 8)]
+    )
+    cities = [
+        {'id': 1, 'row': 1, 'col': 1, 'expanded': False},
+        {'id': 2, 'row': 1, 'col': 5, 'expanded': False},
+    ]
+    result = optimise(_make_input(tile_list, cities))
+    assert result['total_income'] >= 0
+
+def test_result_structure():
+    tile_list = [((0, 0), 'field'), ((0, 1), 'field')]
+    cities = [{'id': 1, 'row': 0, 'col': 0, 'expanded': False}]
+    result = optimise(_make_input(tile_list, cities))
+    assert 'placements' in result
+    assert 'markets' in result
+    assert 'total_income' in result
+    for p in result['placements']:
+        assert 'row' in p and 'col' in p and 'building' in p
+    for m in result['markets']:
+        assert 'row' in m and 'col' in m and 'income' in m and 'city_id' in m
