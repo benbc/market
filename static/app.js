@@ -41,6 +41,7 @@ let activeTool = null;
 let isMouseDown = false;
 let resultPlacements = {};  // "r,c" -> building string
 let resultMarkets = [];     // [{row, col, city_id, income}]
+let resultBurns = {};       // "r,c" -> true
 let nextCityId = 1;
 
 // --- Grid rendering ---
@@ -81,6 +82,14 @@ function renderGrid() {
         icon.className = 'result-icon';
         icon.textContent = BUILDING_ABBR[bldg] || bldg;
         div.appendChild(icon);
+      }
+
+      // Burn indicator
+      if (resultBurns[key]) {
+        const burn = document.createElement('span');
+        burn.className = 'burn-icon';
+        burn.textContent = 'BURN';
+        div.appendChild(burn);
       }
 
       div.addEventListener('mousedown', onTileMouseDown);
@@ -172,6 +181,10 @@ document.getElementById('btn-optimise').addEventListener('click', async () => {
     resultPlacements[`${p.row},${p.col}`] = p.building;
   }
   resultMarkets = result.markets;
+  resultBurns = {};
+  for (const b of (result.burns || [])) {
+    resultBurns[`${b.row},${b.col}`] = true;
+  }
 
   const summary = result.markets
     .map(m => `City ${m.city_id}: ${m.income}/turn`)
@@ -187,6 +200,7 @@ document.getElementById('btn-optimise').addEventListener('click', async () => {
 document.getElementById('btn-clear-result').addEventListener('click', () => {
   resultPlacements = {};
   resultMarkets = [];
+  resultBurns = {};
   document.getElementById('summary').textContent = 'No optimisation run yet.';
   renderGrid();
 });

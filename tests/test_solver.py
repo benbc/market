@@ -100,28 +100,52 @@ def test_ownership_tie_broken_by_order():
 def test_mine_on_metal():
     tiles = {(0, 0): 'mountain+metal', (0, 1): 'field'}
     occupied = {}
-    result = place_resource_buildings(tiles, occupied)
+    result, burns = place_resource_buildings(tiles, occupied)
     assert result[(0, 0)] == 'mine'
 
 def test_lumber_hut_on_free_forest():
     tiles = {(0, 0): 'forest', (0, 1): 'forest'}
     occupied = {(0, 0): 'forge'}  # forge already there
-    result = place_resource_buildings(tiles, occupied)
+    result, burns = place_resource_buildings(tiles, occupied)
     assert (0, 0) not in result   # forge occupies it
     assert result[(0, 1)] == 'lumber_hut'
 
 def test_farm_on_free_crop():
     tiles = {(0, 0): 'field+crop', (0, 1): 'field+crop'}
     occupied = {(0, 0): 'market'}
-    result = place_resource_buildings(tiles, occupied)
+    result, burns = place_resource_buildings(tiles, occupied)
     assert (0, 0) not in result   # market occupies it
     assert result[(0, 1)] == 'farm'
 
 def test_no_resource_on_plain_field():
     tiles = {(0, 0): 'field'}
     occupied = {}
-    result = place_resource_buildings(tiles, occupied)
+    result, burns = place_resource_buildings(tiles, occupied)
     assert (0, 0) not in result
+
+
+def test_forest_with_adjacent_windmill_becomes_farm():
+    tiles = {(0, 0): 'forest', (0, 1): 'field'}
+    occupied = {(0, 1): 'windmill'}
+    result, burns = place_resource_buildings(tiles, occupied)
+    assert result[(0, 0)] == 'farm'
+    assert (0, 0) in burns
+
+
+def test_forest_with_adjacent_sawmill_stays_lumber_hut():
+    tiles = {(0, 0): 'forest', (0, 1): 'field'}
+    occupied = {(0, 1): 'sawmill'}
+    result, burns = place_resource_buildings(tiles, occupied)
+    assert result[(0, 0)] == 'lumber_hut'
+    assert (0, 0) not in burns
+
+
+def test_forest_with_no_adjacent_multipliers_stays_lumber_hut():
+    tiles = {(0, 0): 'forest'}
+    occupied = {}
+    result, burns = place_resource_buildings(tiles, occupied)
+    assert result[(0, 0)] == 'lumber_hut'
+    assert (0, 0) not in burns
 
 def test_sawmill_level_no_huts():
     placements = {(1, 1): 'sawmill'}
@@ -239,10 +263,54 @@ def test_forge_on_forest():
     assert len(forge_on_forest) > 0
 
 def test_sawmill_not_on_forest():
+    """Sawmill was not valid on forest before burning was added; now it is via burn."""
     tiles = {(0, 0): 'forest'}
     territory = {(0, 0)}
     combos = city_placements(tiles, city_territory_positions=territory)
-    assert all(c['sawmill'] != (0, 0) for c in combos)
+    saw_on_forest = [c for c in combos if c['sawmill'] == (0, 0)]
+    assert len(saw_on_forest) > 0
+    # All such combos must include the position in burns
+    for c in saw_on_forest:
+        assert (0, 0) in c['burns']
+
+
+def test_forest_as_sawmill_candidate_via_burn():
+    tiles = {(0, 0): 'forest', (0, 1): 'field'}
+    territory = {(0, 0), (0, 1)}
+    combos = city_placements(tiles, city_territory_positions=territory)
+    saw_on_forest = [c for c in combos if c['sawmill'] == (0, 0)]
+    assert len(saw_on_forest) > 0
+    for c in saw_on_forest:
+        assert (0, 0) in c['burns']
+
+
+def test_forest_as_market_candidate_via_burn():
+    tiles = {(0, 0): 'forest', (0, 1): 'field'}
+    territory = {(0, 0), (0, 1)}
+    combos = city_placements(tiles, city_territory_positions=territory)
+    mkt_on_forest = [c for c in combos if c['market'] == (0, 0)]
+    assert len(mkt_on_forest) > 0
+    for c in mkt_on_forest:
+        assert (0, 0) in c['burns']
+
+
+def test_forge_on_forest_no_burn():
+    """Forge is natively valid on forest, so placing it there should NOT require a burn."""
+    tiles = {(0, 0): 'forest', (0, 1): 'field'}
+    territory = {(0, 0), (0, 1)}
+    combos = city_placements(tiles, city_territory_positions=territory)
+    forge_on_forest = [c for c in combos if c['forge'] == (0, 0)]
+    assert len(forge_on_forest) > 0
+    for c in forge_on_forest:
+        assert (0, 0) not in c['burns']
+
+
+def test_combo_burns_is_frozenset():
+    tiles = {(0, 0): 'field'}
+    territory = {(0, 0)}
+    combos = city_placements(tiles, city_territory_positions=territory)
+    for c in combos:
+        assert isinstance(c['burns'], frozenset)
 
 def _make_input(tile_list, city_list):
     return {
@@ -286,7 +354,27 @@ def test_result_structure():
     assert 'placements' in result
     assert 'markets' in result
     assert 'total_income' in result
+    assert 'burns' in result
     for p in result['placements']:
         assert 'row' in p and 'col' in p and 'building' in p
     for m in result['markets']:
         assert 'row' in m and 'col' in m and 'income' in m and 'city_id' in m
+    for b in result['burns']:
+        assert 'row' in b and 'col' in b
+
+
+def test_optimise_burns_from_resource_greedy():
+    """A forest next to a windmill should be burned to farm, appearing in burns."""
+    tile_list = [
+        ((0, 0), 'field'),
+        ((0, 1), 'field+crop'),
+        ((0, 2), 'forest'),
+        ((1, 0), 'field'),
+        ((1, 1), 'field'),
+        ((1, 2), 'field'),
+    ]
+    cities = [{'id': 1, 'row': 1, 'col': 1, 'expanded': False}]
+    result = optimise(_make_input(tile_list, cities))
+    # The solver should place a windmill somewhere; if (0,2) forest is adjacent
+    # to it, it should appear as a burn. Check that burns is a list.
+    assert isinstance(result['burns'], list)

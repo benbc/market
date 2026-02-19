@@ -108,6 +108,17 @@ body {
   padding: 0 2px;
 }
 
+.tile .burn-icon {
+  position: absolute;
+  top: 1px; right: 1px;
+  font-size: 8px;
+  font-weight: bold;
+  color: #fff;
+  background: rgba(255,60,0,0.85);
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
 #summary {
   padding: 8px 12px;
   border-top: 1px solid #ccc;

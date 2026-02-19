@@ -53,26 +53,43 @@ def assign_ownership(tile_positions: list, cities: list) -> dict:
             ownership[pos] = best_city
     return ownership
 
-def place_resource_buildings(tiles: dict, occupied: dict) -> dict:
+def place_resource_buildings(tiles: dict, occupied: dict) -> tuple:
     """
     Given a map of pos->terrain and a dict of already-occupied pos->building,
-    return a dict of pos->resource_building for every free eligible tile.
-    Resource buildings: mine (mountain+metal), lumber_hut (forest), farm (field+crop).
-    Plain fields get nothing.
+    return (resources, burns) where:
+      resources: dict of pos->resource_building for every free eligible tile
+      burns: set of forest positions that should be burned (converted to farm)
+    For forests, chooses between lumber_hut and farm based on adjacent multipliers.
     """
     RESOURCE = {
         'mountain+metal': 'mine',
-        'forest': 'lumber_hut',
         'field+crop': 'farm',
     }
     result = {}
+    burns = set()
     for pos, terrain in tiles.items():
         if pos in occupied:
             continue
-        building = RESOURCE.get(terrain)
-        if building:
-            result[pos] = building
-    return result
+        if terrain == 'forest':
+            # Count adjacent sawmills and windmills to decide keep vs burn
+            adj_sawmills = sum(
+                1 for opos, bldg in occupied.items()
+                if bldg == 'sawmill' and is_adjacent(pos, opos)
+            )
+            adj_windmills = sum(
+                1 for opos, bldg in occupied.items()
+                if bldg == 'windmill' and is_adjacent(pos, opos)
+            )
+            if adj_windmills > adj_sawmills:
+                result[pos] = 'farm'
+                burns.add(pos)
+            else:
+                result[pos] = 'lumber_hut'
+        else:
+            building = RESOURCE.get(terrain)
+            if building:
+                result[pos] = building
+    return result, burns
 
 MULTIPLIER_RESOURCE = {
     'sawmill': ('lumber_hut', 1),
@@ -108,19 +125,30 @@ def market_income(pos: tuple, placements: dict) -> int:
 from itertools import product as iproduct
 
 MULTIPLIERS = ('sawmill', 'windmill', 'forge')
+COMBO_BUILDINGS = ('sawmill', 'windmill', 'forge', 'market')
+
+FIELD_CROP_ELIGIBLE = ELIGIBLE['field+crop']
 
 def city_placements(tiles: dict, city_territory_positions: set) -> list:
     """
     Enumerate all valid (sawmill, windmill, forge, market) tile assignments for one city.
     tiles: dict of pos->terrain for all tiles in the game (not just this city).
     city_territory_positions: set of positions belonging to this city.
-    Returns list of dicts with keys sawmill, windmill, forge, market (values: pos or None).
+    Returns list of dicts with keys sawmill, windmill, forge, market, burns.
+    burns is a frozenset of positions where forest must be burned for the placement.
     """
     def candidates(building):
-        return [None] + [
-            pos for pos in city_territory_positions
-            if pos in tiles and terrain_accepts(tiles[pos], building)
-        ]
+        result = [None]
+        for pos in city_territory_positions:
+            if pos not in tiles:
+                continue
+            terrain = tiles[pos]
+            if terrain_accepts(terrain, building):
+                result.append(pos)
+            elif terrain == 'forest' and building in FIELD_CROP_ELIGIBLE:
+                # Forest can be burned to field+crop, making it eligible
+                result.append(pos)
+        return result
 
     saw_cands = candidates('sawmill')
     win_cands = candidates('windmill')
@@ -138,24 +166,29 @@ def city_placements(tiles: dict, city_territory_positions: set) -> list:
             multiplier_positions = [p for p in (saw, win, frg) if p is not None]
             if not any(is_adjacent(mkt, mp) for mp in multiplier_positions):
                 continue
-        results.append({'sawmill': saw, 'windmill': win, 'forge': frg, 'market': mkt})
+        # Compute which forest positions need burning
+        burns = frozenset(
+            pos for pos, building in ((saw, 'sawmill'), (win, 'windmill'), (frg, 'forge'), (mkt, 'market'))
+            if pos is not None and tiles.get(pos) == 'forest' and not terrain_accepts('forest', building)
+        )
+        results.append({'sawmill': saw, 'windmill': win, 'forge': frg, 'market': mkt, 'burns': burns})
     return results
 
 import random
 
-def _build_full_placements(city_assignments: dict, tiles: dict) -> dict:
+def _build_full_placements(city_assignments: dict, tiles: dict) -> tuple:
     """
     Given per-city production/market assignments (pos->building),
     fill remaining eligible tiles with resource buildings.
-    Returns a single dict of pos->building covering everything.
+    Returns (placements dict pos->building, burns set of burned positions).
     """
     occupied = dict(city_assignments)
-    resources = place_resource_buildings(tiles, occupied)
-    return {**occupied, **resources}
+    resources, resource_burns = place_resource_buildings(tiles, occupied)
+    return {**occupied, **resources}, resource_burns
 
 def _score(city_assignments: dict, tiles: dict) -> int:
     """Total Market income given current city assignments."""
-    placements = _build_full_placements(city_assignments, tiles)
+    placements, _ = _build_full_placements(city_assignments, tiles)
     return sum(
         market_income(pos, placements)
         for pos, bldg in placements.items()
@@ -176,7 +209,8 @@ def _optimise_once(cities_combos: list, tiles: dict) -> tuple:
     for city_id, territory, combos in cities_combos:
         chosen = _random_assignment(combos)
         city_selected.append((city_id, territory, combos, chosen))
-        for role, pos in chosen.items():
+        for role in COMBO_BUILDINGS:
+            pos = chosen.get(role)
             if pos is not None:
                 current[pos] = role
 
@@ -185,13 +219,14 @@ def _optimise_once(cities_combos: list, tiles: dict) -> tuple:
         improved = False
         for i, (city_id, territory, combos, chosen) in enumerate(city_selected):
             partial = {p: b for p, b in current.items()
-                       if p not in territory or b not in ('sawmill', 'windmill', 'forge', 'market')}
+                       if p not in territory or b not in COMBO_BUILDINGS}
 
             best_score = -1
             best_combo = chosen
             for combo in combos:
                 candidate = dict(partial)
-                for role, pos in combo.items():
+                for role in COMBO_BUILDINGS:
+                    pos = combo.get(role)
                     if pos is not None:
                         candidate[pos] = role
                 s = _score(candidate, tiles)
@@ -200,7 +235,8 @@ def _optimise_once(cities_combos: list, tiles: dict) -> tuple:
                     best_combo = combo
 
             new_assignments = dict(partial)
-            for role, pos in best_combo.items():
+            for role in COMBO_BUILDINGS:
+                pos = best_combo.get(role)
                 if pos is not None:
                     new_assignments[pos] = role
 
@@ -228,19 +264,28 @@ def optimise(data: dict, restarts: int = 5) -> dict:
         territory_in_game = {p for p in territory if p in tiles and ownership.get(p) == city['id']}
         combos = city_placements(tiles, territory_in_game)
         if not combos:
-            combos = [{'sawmill': None, 'windmill': None, 'forge': None, 'market': None}]
+            combos = [{'sawmill': None, 'windmill': None, 'forge': None, 'market': None, 'burns': frozenset()}]
         cities_combos.append((city['id'], territory_in_game, combos))
 
     best_score = -1
     best_placements = {}
+    best_city_selected = []
 
     for _ in range(restarts):
-        score, placements, _ = _optimise_once(cities_combos, tiles)
+        score, placements, city_selected = _optimise_once(cities_combos, tiles)
         if score > best_score:
             best_score = score
             best_placements = placements
+            best_city_selected = city_selected
 
-    full = _build_full_placements(best_placements, tiles)
+    full, resource_burns = _build_full_placements(best_placements, tiles)
+
+    # Collect burns from multiplier/market combos
+    combo_burns = set()
+    for _city_id, _territory, _combos, chosen in best_city_selected:
+        combo_burns |= set(chosen.get('burns', frozenset()))
+
+    all_burns = combo_burns | resource_burns
 
     placement_list = [
         {'row': pos[0], 'col': pos[1], 'building': bldg}
@@ -255,9 +300,11 @@ def optimise(data: dict, restarts: int = 5) -> dict:
                 'city_id': city_id,
                 'income': market_income(pos, full),
             })
+    burns_list = [{'row': pos[0], 'col': pos[1]} for pos in all_burns]
 
     return {
         'placements': placement_list,
         'markets': markets_list,
         'total_income': best_score,
+        'burns': burns_list,
     }
