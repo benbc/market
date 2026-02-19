@@ -1,4 +1,4 @@
-from solver import ELIGIBLE, terrain_accepts, is_adjacent, city_territory, assign_ownership, place_resource_buildings
+from solver import ELIGIBLE, terrain_accepts, is_adjacent, city_territory, assign_ownership, place_resource_buildings, multiplier_level
 
 def test_field_accepts_sawmill():
     assert 'sawmill' in ELIGIBLE['field']
@@ -122,3 +122,40 @@ def test_no_resource_on_plain_field():
     occupied = {}
     result = place_resource_buildings(tiles, occupied)
     assert (0, 0) not in result
+
+def test_sawmill_level_no_huts():
+    placements = {(1, 1): 'sawmill'}
+    assert multiplier_level((1, 1), 'sawmill', placements) == 0
+
+def test_sawmill_level_one_hut():
+    placements = {(1, 1): 'sawmill', (1, 2): 'lumber_hut'}
+    assert multiplier_level((1, 1), 'sawmill', placements) == 1
+
+def test_sawmill_level_three_huts():
+    placements = {
+        (1, 1): 'sawmill',
+        (0, 0): 'lumber_hut',
+        (0, 1): 'lumber_hut',
+        (0, 2): 'lumber_hut',
+    }
+    assert multiplier_level((1, 1), 'sawmill', placements) == 3
+
+def test_windmill_level_two_farms():
+    placements = {
+        (2, 2): 'windmill',
+        (1, 1): 'farm',
+        (3, 3): 'farm',
+    }
+    assert multiplier_level((2, 2), 'windmill', placements) == 2
+
+def test_forge_level_one_mine():
+    placements = {(0, 0): 'forge', (0, 1): 'mine'}
+    assert multiplier_level((0, 0), 'forge', placements) == 2
+
+def test_forge_level_two_mines():
+    placements = {(0, 0): 'forge', (0, 1): 'mine', (1, 0): 'mine'}
+    assert multiplier_level((0, 0), 'forge', placements) == 4
+
+def test_non_adjacent_hut_not_counted():
+    placements = {(0, 0): 'sawmill', (0, 3): 'lumber_hut'}
+    assert multiplier_level((0, 0), 'sawmill', placements) == 0

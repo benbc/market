@@ -73,3 +73,21 @@ def place_resource_buildings(tiles: dict, occupied: dict) -> dict:
         if building:
             result[pos] = building
     return result
+
+MULTIPLIER_RESOURCE = {
+    'sawmill': ('lumber_hut', 1),
+    'windmill': ('farm', 1),
+    'forge': ('mine', 2),
+}
+
+def multiplier_level(pos: tuple, building: str, placements: dict) -> int:
+    """
+    Compute the level (population output) of a production multiplier.
+    placements: dict of pos->building covering all placed buildings.
+    """
+    resource, weight = MULTIPLIER_RESOURCE[building]
+    return sum(
+        weight
+        for other_pos, other_bldg in placements.items()
+        if other_bldg == resource and is_adjacent(pos, other_pos)
+    )
