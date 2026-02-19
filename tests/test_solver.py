@@ -1,4 +1,4 @@
-from solver import ELIGIBLE, terrain_accepts, is_adjacent, city_territory, assign_ownership, place_resource_buildings, multiplier_level
+from solver import ELIGIBLE, terrain_accepts, is_adjacent, city_territory, assign_ownership, place_resource_buildings, multiplier_level, market_income
 
 def test_field_accepts_sawmill():
     assert 'sawmill' in ELIGIBLE['field']
@@ -159,3 +159,51 @@ def test_forge_level_two_mines():
 def test_non_adjacent_hut_not_counted():
     placements = {(0, 0): 'sawmill', (0, 3): 'lumber_hut'}
     assert multiplier_level((0, 0), 'sawmill', placements) == 0
+
+def test_market_no_adjacent_multipliers():
+    placements = {(0, 0): 'market'}
+    assert market_income((0, 0), placements) == 0
+
+def test_market_adjacent_sawmill_level_2():
+    placements = {
+        (0, 0): 'market',
+        (0, 1): 'sawmill',
+        (0, 2): 'lumber_hut',
+        (1, 2): 'lumber_hut',
+    }
+    assert market_income((0, 0), placements) == 2
+
+def test_market_adjacent_forge_and_sawmill():
+    placements = {
+        (5, 5): 'market',
+        (5, 6): 'sawmill',
+        (5, 7): 'lumber_hut',  # adjacent to sawmill, not market
+        (5, 4): 'forge',
+        (4, 4): 'mine',         # adjacent to forge, not market
+    }
+    # sawmill level=1, forge level=2 -> total=3
+    assert market_income((5, 5), placements) == 3
+
+def test_market_capped_at_8():
+    placements = {
+        (5, 5): 'market',
+        (4, 4): 'sawmill',
+        (4, 5): 'sawmill',
+        (4, 6): 'sawmill',
+    }
+    placements.update({
+        (3, 3): 'lumber_hut', (3, 4): 'lumber_hut', (3, 5): 'lumber_hut',
+        (3, 6): 'lumber_hut',
+        (5, 7): 'lumber_hut',
+        (4, 7): 'lumber_hut',
+    })
+    income = market_income((5, 5), placements)
+    assert income <= 8
+
+def test_market_diagonal_multiplier_counts():
+    placements = {
+        (0, 0): 'market',
+        (1, 1): 'sawmill',   # diagonal
+        (1, 2): 'lumber_hut',
+    }
+    assert market_income((0, 0), placements) == 1

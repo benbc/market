@@ -91,3 +91,16 @@ def multiplier_level(pos: tuple, building: str, placements: dict) -> int:
         for other_pos, other_bldg in placements.items()
         if other_bldg == resource and is_adjacent(pos, other_pos)
     )
+
+MARKET_CAP = 8
+
+def market_income(pos: tuple, placements: dict) -> int:
+    """
+    Compute a Market's star income given all placed buildings.
+    Income = sum of levels of 8-adjacent Sawmills/Windmills/Forges, capped at MARKET_CAP.
+    """
+    total = 0
+    for other_pos, building in placements.items():
+        if building in MULTIPLIER_RESOURCE and is_adjacent(pos, other_pos):
+            total += multiplier_level(other_pos, building, placements)
+    return min(total, MARKET_CAP)
