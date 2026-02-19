@@ -52,3 +52,24 @@ def assign_ownership(tile_positions: list, cities: list) -> dict:
         if best_city is not None:
             ownership[pos] = best_city
     return ownership
+
+def place_resource_buildings(tiles: dict, occupied: dict) -> dict:
+    """
+    Given a map of pos->terrain and a dict of already-occupied pos->building,
+    return a dict of pos->resource_building for every free eligible tile.
+    Resource buildings: mine (mountain+metal), lumber_hut (forest), farm (field+crop).
+    Plain fields get nothing.
+    """
+    RESOURCE = {
+        'mountain+metal': 'mine',
+        'forest': 'lumber_hut',
+        'field+crop': 'farm',
+    }
+    result = {}
+    for pos, terrain in tiles.items():
+        if pos in occupied:
+            continue
+        building = RESOURCE.get(terrain)
+        if building:
+            result[pos] = building
+    return result

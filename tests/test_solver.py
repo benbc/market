@@ -1,4 +1,4 @@
-from solver import ELIGIBLE, terrain_accepts, is_adjacent, city_territory, assign_ownership
+from solver import ELIGIBLE, terrain_accepts, is_adjacent, city_territory, assign_ownership, place_resource_buildings
 
 def test_field_accepts_sawmill():
     assert 'sawmill' in ELIGIBLE['field']
@@ -96,3 +96,29 @@ def test_ownership_tie_broken_by_order():
     tile_positions = [(0, 1)]  # equidistant
     ownership = assign_ownership(tile_positions, cities)
     assert ownership[(0, 1)] == 1  # first city wins
+
+def test_mine_on_metal():
+    tiles = {(0, 0): 'mountain+metal', (0, 1): 'field'}
+    occupied = {}
+    result = place_resource_buildings(tiles, occupied)
+    assert result[(0, 0)] == 'mine'
+
+def test_lumber_hut_on_free_forest():
+    tiles = {(0, 0): 'forest', (0, 1): 'forest'}
+    occupied = {(0, 0): 'forge'}  # forge already there
+    result = place_resource_buildings(tiles, occupied)
+    assert (0, 0) not in result   # forge occupies it
+    assert result[(0, 1)] == 'lumber_hut'
+
+def test_farm_on_free_crop():
+    tiles = {(0, 0): 'field+crop', (0, 1): 'field+crop'}
+    occupied = {(0, 0): 'market'}
+    result = place_resource_buildings(tiles, occupied)
+    assert (0, 0) not in result   # market occupies it
+    assert result[(0, 1)] == 'farm'
+
+def test_no_resource_on_plain_field():
+    tiles = {(0, 0): 'field'}
+    occupied = {}
+    result = place_resource_buildings(tiles, occupied)
+    assert (0, 0) not in result
