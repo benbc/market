@@ -53,7 +53,7 @@ def assign_ownership(tile_positions: list, cities: list) -> dict:
             ownership[pos] = best_city
     return ownership
 
-def place_resource_buildings(tiles: dict, occupied: dict) -> tuple:
+def place_resource_buildings(tiles: dict, occupied: dict, excluded_buildings: frozenset = frozenset()) -> tuple:
     """
     Given a map of pos->terrain and a dict of already-occupied pos->building,
     return (resources, burns) where:
@@ -71,7 +71,10 @@ def place_resource_buildings(tiles: dict, occupied: dict) -> tuple:
         if pos in occupied:
             continue
         if terrain == 'forest':
-            # Count adjacent sawmills and windmills to decide keep vs burn
+            lumber_ok = 'lumber_hut' not in excluded_buildings
+            farm_ok = 'farm' not in excluded_buildings
+            if not lumber_ok and not farm_ok:
+                continue
             adj_sawmills = sum(
                 1 for opos, bldg in occupied.items()
                 if bldg == 'sawmill' and is_adjacent(pos, opos)
@@ -80,14 +83,17 @@ def place_resource_buildings(tiles: dict, occupied: dict) -> tuple:
                 1 for opos, bldg in occupied.items()
                 if bldg == 'windmill' and is_adjacent(pos, opos)
             )
-            if adj_windmills > adj_sawmills:
+            if farm_ok and adj_windmills > adj_sawmills:
                 result[pos] = 'farm'
                 burns.add(pos)
-            else:
+            elif lumber_ok:
                 result[pos] = 'lumber_hut'
+            elif farm_ok and adj_windmills > 0:
+                result[pos] = 'farm'
+                burns.add(pos)
         else:
             building = RESOURCE.get(terrain)
-            if building:
+            if building and building not in excluded_buildings:
                 result[pos] = building
     return result, burns
 

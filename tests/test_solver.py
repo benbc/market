@@ -485,3 +485,50 @@ def test_excluded_market_not_placed():
     combos = city_placements(tiles, territory, excluded_buildings=frozenset({'market'}))
     for c in combos:
         assert c['market'] is None
+
+
+def test_excluded_mine_not_placed():
+    tiles = {(0, 0): 'mountain+metal', (0, 1): 'field'}
+    occupied = {}
+    result, burns = place_resource_buildings(tiles, occupied, excluded_buildings=frozenset({'mine'}))
+    assert (0, 0) not in result
+
+
+def test_excluded_farm_not_placed_on_crop():
+    tiles = {(0, 0): 'field+crop'}
+    occupied = {}
+    result, burns = place_resource_buildings(tiles, occupied, excluded_buildings=frozenset({'farm'}))
+    assert (0, 0) not in result
+
+
+def test_excluded_lumber_hut_forest_stays_empty():
+    """With lumber_hut excluded and no adjacent windmill, forest gets nothing."""
+    tiles = {(0, 0): 'forest'}
+    occupied = {}
+    result, burns = place_resource_buildings(tiles, occupied, excluded_buildings=frozenset({'lumber_hut'}))
+    assert (0, 0) not in result
+
+
+def test_excluded_lumber_hut_forest_burns_to_farm_if_windmill():
+    """With lumber_hut excluded but farm available, forest adjacent to windmill burns to farm."""
+    tiles = {(0, 0): 'forest', (0, 1): 'field'}
+    occupied = {(0, 1): 'windmill'}
+    result, burns = place_resource_buildings(tiles, occupied, excluded_buildings=frozenset({'lumber_hut'}))
+    assert result[(0, 0)] == 'farm'
+    assert (0, 0) in burns
+
+
+def test_excluded_farm_forest_stays_lumber_hut():
+    """With farm excluded, forest always becomes lumber_hut regardless of adjacent windmills."""
+    tiles = {(0, 0): 'forest', (0, 1): 'field'}
+    occupied = {(0, 1): 'windmill'}
+    result, burns = place_resource_buildings(tiles, occupied, excluded_buildings=frozenset({'farm'}))
+    assert result[(0, 0)] == 'lumber_hut'
+    assert (0, 0) not in burns
+
+
+def test_excluded_both_lumber_hut_and_farm_forest_empty():
+    tiles = {(0, 0): 'forest', (0, 1): 'field'}
+    occupied = {(0, 1): 'windmill'}
+    result, burns = place_resource_buildings(tiles, occupied, excluded_buildings=frozenset({'lumber_hut', 'farm'}))
+    assert (0, 0) not in result
