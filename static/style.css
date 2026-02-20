@@ -99,6 +99,15 @@ body {
   line-height: 1.2;
 }
 
+.tile .pinned-icon {
+  position: absolute;
+  bottom: 1px; right: 1px;
+  font-size: 10px;
+  background: rgba(255,255,255,0.8);
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
 .tile .result-icon {
   position: absolute;
   bottom: 1px; right: 1px;

@@ -35,6 +35,7 @@ let state = {
   cols: 10,
   tiles: {},     // "r,c" -> terrain string
   cities: [],    // {id, row, col, expanded}
+  pinned: {},    // "r,c" -> building name
 };
 
 let activeTool = null;
@@ -75,6 +76,15 @@ function renderGrid() {
         div.appendChild(marker);
       }
 
+      // Pinned building icon
+      const pinnedBldg = state.pinned[key];
+      if (pinnedBldg) {
+        const pin = document.createElement('span');
+        pin.className = 'pinned-icon';
+        pin.textContent = BUILDING_ABBR[pinnedBldg] || pinnedBldg;
+        div.appendChild(pin);
+      }
+
       // Result icon
       const bldg = resultPlacements[key];
       if (bldg) {
@@ -113,6 +123,14 @@ function applyTool(r, c) {
     }
   } else if (activeTool === 'empty') {
     delete state.tiles[key];
+    delete state.pinned[key];
+  } else if (activeTool && activeTool.startsWith('pin-')) {
+    const building = activeTool.slice(4);
+    if (state.pinned[key] === building) {
+      delete state.pinned[key];
+    } else {
+      state.pinned[key] = building;
+    }
   } else if (activeTool) {
     state.tiles[key] = activeTool;
   }
@@ -130,6 +148,7 @@ function onTileMouseDown(e) {
 function onTileMouseEnter(e) {
   if (!isMouseDown) return;
   if (activeTool === 'city') return;  // don't drag-place cities
+  if (activeTool && activeTool.startsWith('pin-')) return;  // don't drag-place buildings
   const r = +e.currentTarget.dataset.r;
   const c = +e.currentTarget.dataset.c;
   applyTool(r, c);
@@ -167,7 +186,11 @@ document.getElementById('btn-optimise').addEventListener('click', async () => {
     const [r, c] = key.split(',').map(Number);
     return { row: r, col: c, terrain };
   });
-  const payload = { tiles: tilesArr, cities: state.cities };
+  const pinnedArr = Object.entries(state.pinned).map(([key, building]) => {
+    const [r, c] = key.split(',').map(Number);
+    return { row: r, col: c, building };
+  });
+  const payload = { tiles: tilesArr, cities: state.cities, pinned: pinnedArr };
 
   const resp = await fetch('/optimize', {
     method: 'POST',
@@ -227,6 +250,7 @@ document.getElementById('file-input').addEventListener('change', e => {
   reader.onload = ev => {
     try {
       state = JSON.parse(ev.target.result);
+      if (!state.pinned) state.pinned = {};
       nextCityId = (state.cities.reduce((m, c) => Math.max(m, c.id), 0)) + 1;
       resultPlacements = {};
       resultMarkets = [];

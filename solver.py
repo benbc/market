@@ -129,7 +129,7 @@ COMBO_BUILDINGS = ('sawmill', 'windmill', 'forge', 'market')
 
 FIELD_CROP_ELIGIBLE = ELIGIBLE['field+crop']
 
-def city_placements(tiles: dict, city_territory_positions: set) -> list:
+def city_placements(tiles: dict, city_territory_positions: set, pinned_positions: frozenset = frozenset()) -> list:
     """
     Enumerate all valid (sawmill, windmill, forge, market) tile assignments for one city.
     tiles: dict of pos->terrain for all tiles in the game (not just this city).
@@ -140,6 +140,8 @@ def city_placements(tiles: dict, city_territory_positions: set) -> list:
     def candidates(building):
         result = [None]
         for pos in city_territory_positions:
+            if pos in pinned_positions:
+                continue
             if pos not in tiles:
                 continue
             terrain = tiles[pos]
@@ -198,13 +200,16 @@ def _score(city_assignments: dict, tiles: dict) -> int:
 def _random_assignment(combos: list) -> dict:
     return random.choice(combos) if combos else {}
 
-def _optimise_once(cities_combos: list, tiles: dict) -> tuple:
+def _optimise_once(cities_combos: list, tiles: dict, pinned: dict = None) -> tuple:
     """
     One run of coordinate descent from a random start.
     cities_combos: list of (city_id, territory_positions, combos_list)
+    pinned: dict of (r,c)->building for buildings that must stay fixed
     Returns (score, city_assignments dict pos->building)
     """
-    current = {}
+    if pinned is None:
+        pinned = {}
+    current = dict(pinned)
     city_selected = []
     for city_id, territory, combos in cities_combos:
         chosen = _random_assignment(combos)
@@ -219,7 +224,7 @@ def _optimise_once(cities_combos: list, tiles: dict) -> tuple:
         improved = False
         for i, (city_id, territory, combos, chosen) in enumerate(city_selected):
             partial = {p: b for p, b in current.items()
-                       if p not in territory or b not in COMBO_BUILDINGS}
+                       if p not in territory or b not in COMBO_BUILDINGS or p in pinned}
 
             best_score = -1
             best_combo = chosen
@@ -255,6 +260,8 @@ def optimise(data: dict, restarts: int = 5) -> dict:
     """
     tiles = {(t['row'], t['col']): t['terrain'] for t in data['tiles']}
     cities = data['cities']
+    pinned = {(p['row'], p['col']): p['building'] for p in data.get('pinned', [])}
+    pinned_positions = frozenset(pinned.keys())
     all_positions = list(tiles.keys())
     ownership = assign_ownership(all_positions, cities)
 
@@ -262,7 +269,7 @@ def optimise(data: dict, restarts: int = 5) -> dict:
     for city in cities:
         territory = city_territory(city['row'], city['col'], city['expanded'])
         territory_in_game = {p for p in territory if p in tiles and ownership.get(p) == city['id']}
-        combos = city_placements(tiles, territory_in_game)
+        combos = city_placements(tiles, territory_in_game, pinned_positions)
         if not combos:
             combos = [{'sawmill': None, 'windmill': None, 'forge': None, 'market': None, 'burns': frozenset()}]
         cities_combos.append((city['id'], territory_in_game, combos))
@@ -272,7 +279,7 @@ def optimise(data: dict, restarts: int = 5) -> dict:
     best_city_selected = []
 
     for _ in range(restarts):
-        score, placements, city_selected = _optimise_once(cities_combos, tiles)
+        score, placements, city_selected = _optimise_once(cities_combos, tiles, pinned)
         if score > best_score:
             best_score = score
             best_placements = placements

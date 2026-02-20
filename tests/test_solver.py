@@ -1,4 +1,4 @@
-from solver import ELIGIBLE, terrain_accepts, is_adjacent, city_territory, assign_ownership, place_resource_buildings, multiplier_level, market_income, city_placements, optimise
+from solver import ELIGIBLE, terrain_accepts, is_adjacent, city_territory, assign_ownership, place_resource_buildings, multiplier_level, market_income, city_placements, optimise, _optimise_once, COMBO_BUILDINGS
 
 def test_field_accepts_sawmill():
     assert 'sawmill' in ELIGIBLE['field']
@@ -361,6 +361,87 @@ def test_result_structure():
         assert 'row' in m and 'col' in m and 'income' in m and 'city_id' in m
     for b in result['burns']:
         assert 'row' in b and 'col' in b
+
+
+def test_pinned_position_excluded_from_candidates():
+    """A pinned position should not appear as a candidate for any building."""
+    tiles = {(0, 0): 'field', (0, 1): 'field', (0, 2): 'field'}
+    territory = {(0, 0), (0, 1), (0, 2)}
+    pinned = frozenset({(0, 0)})
+    combos = city_placements(tiles, territory, pinned_positions=pinned)
+    for c in combos:
+        for role in COMBO_BUILDINGS:
+            assert c[role] != (0, 0), f"Pinned position (0,0) used as {role}"
+
+
+def test_pinned_position_other_tiles_still_used():
+    """Non-pinned positions should still be valid candidates."""
+    tiles = {(0, 0): 'field', (0, 1): 'field', (0, 2): 'field'}
+    territory = {(0, 0), (0, 1), (0, 2)}
+    pinned = frozenset({(0, 0)})
+    combos = city_placements(tiles, territory, pinned_positions=pinned)
+    # Should have combos that use (0,1) and (0,2)
+    used_positions = set()
+    for c in combos:
+        for role in COMBO_BUILDINGS:
+            if c[role] is not None:
+                used_positions.add(c[role])
+    assert (0, 1) in used_positions
+    assert (0, 2) in used_positions
+
+
+def test_optimise_once_keeps_pinned_buildings():
+    """_optimise_once should keep pinned buildings in assignments."""
+    tiles = {
+        (0, 0): 'field', (0, 1): 'field', (0, 2): 'field',
+        (1, 0): 'field', (1, 1): 'field', (1, 2): 'field+crop',
+    }
+    territory = {(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2)}
+    pinned = {(0, 0): 'sawmill'}
+    combos = city_placements(tiles, territory, pinned_positions=frozenset(pinned.keys()))
+    cities_combos = [(1, territory, combos)]
+    score, assignments, _ = _optimise_once(cities_combos, tiles, pinned)
+    assert assignments.get((0, 0)) == 'sawmill'
+
+
+def test_pinned_sawmill_contributes_to_market_income():
+    """A pinned sawmill should contribute to market scoring."""
+    # Layout: pinned sawmill at (0,0), lumber_hut at (1,0), market should benefit
+    tiles = {
+        (0, 0): 'field', (0, 1): 'field', (0, 2): 'forest',
+        (1, 0): 'field', (1, 1): 'field', (1, 2): 'field+crop',
+    }
+    pinned = [{'row': 0, 'col': 0, 'building': 'sawmill'}]
+    cities = [{'id': 1, 'row': 1, 'col': 1, 'expanded': False}]
+    data = {
+        'tiles': [{'row': r, 'col': c, 'terrain': t} for (r, c), t in tiles.items()],
+        'cities': cities,
+        'pinned': pinned,
+    }
+    result = optimise(data)
+    # Pinned sawmill must be in placements
+    saw_placed = [p for p in result['placements'] if p['row'] == 0 and p['col'] == 0]
+    assert len(saw_placed) == 1
+    assert saw_placed[0]['building'] == 'sawmill'
+
+
+def test_optimise_accepts_pinned_and_returns_them():
+    """optimise() should accept pinned in input and return them in placements."""
+    tiles = {
+        (0, 0): 'field', (0, 1): 'field',
+        (1, 0): 'field', (1, 1): 'field',
+    }
+    pinned = [{'row': 0, 'col': 0, 'building': 'forge'}]
+    cities = [{'id': 1, 'row': 0, 'col': 0, 'expanded': False}]
+    data = {
+        'tiles': [{'row': r, 'col': c, 'terrain': t} for (r, c), t in tiles.items()],
+        'cities': cities,
+        'pinned': pinned,
+    }
+    result = optimise(data)
+    forge_placed = [p for p in result['placements'] if p['row'] == 0 and p['col'] == 0]
+    assert len(forge_placed) == 1
+    assert forge_placed[0]['building'] == 'forge'
 
 
 def test_optimise_burns_from_resource_greedy():
