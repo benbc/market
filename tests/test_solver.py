@@ -459,3 +459,29 @@ def test_optimise_burns_from_resource_greedy():
     # The solver should place a windmill somewhere; if (0,2) forest is adjacent
     # to it, it should appear as a burn. Check that burns is a list.
     assert isinstance(result['burns'], list)
+
+
+def test_excluded_building_not_in_combos():
+    """An excluded building should never appear in any combo."""
+    tiles = {(0, 0): 'field', (0, 1): 'field', (0, 2): 'field'}
+    territory = {(0, 0), (0, 1), (0, 2)}
+    combos = city_placements(tiles, territory, excluded_buildings=frozenset({'sawmill'}))
+    for c in combos:
+        assert c['sawmill'] is None, "Excluded sawmill was placed"
+
+
+def test_excluded_building_others_still_work():
+    """Non-excluded buildings should still be placed normally."""
+    tiles = {(0, 0): 'field', (0, 1): 'field', (0, 2): 'field'}
+    territory = {(0, 0), (0, 1), (0, 2)}
+    combos = city_placements(tiles, territory, excluded_buildings=frozenset({'sawmill'}))
+    has_windmill = any(c['windmill'] is not None for c in combos)
+    assert has_windmill
+
+
+def test_excluded_market_not_placed():
+    tiles = {(0, 0): 'field', (0, 1): 'field'}
+    territory = {(0, 0), (0, 1)}
+    combos = city_placements(tiles, territory, excluded_buildings=frozenset({'market'}))
+    for c in combos:
+        assert c['market'] is None

@@ -129,7 +129,7 @@ COMBO_BUILDINGS = ('sawmill', 'windmill', 'forge', 'market')
 
 FIELD_CROP_ELIGIBLE = ELIGIBLE['field+crop']
 
-def city_placements(tiles: dict, city_territory_positions: set, pinned_positions: frozenset = frozenset()) -> list:
+def city_placements(tiles: dict, city_territory_positions: set, pinned_positions: frozenset = frozenset(), excluded_buildings: frozenset = frozenset()) -> list:
     """
     Enumerate all valid (sawmill, windmill, forge, market) tile assignments for one city.
     tiles: dict of pos->terrain for all tiles in the game (not just this city).
@@ -138,6 +138,8 @@ def city_placements(tiles: dict, city_territory_positions: set, pinned_positions
     burns is a frozenset of positions where forest must be burned for the placement.
     """
     def candidates(building):
+        if building in excluded_buildings:
+            return [None]
         result = [None]
         for pos in city_territory_positions:
             if pos in pinned_positions:
