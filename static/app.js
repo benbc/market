@@ -36,6 +36,7 @@ let state = {
   tiles: {},     // "r,c" -> terrain string
   cities: [],    // {id, row, col, expanded}
   pinned: {},    // "r,c" -> building name
+  excluded: [],  // building names excluded from solver
 };
 
 let activeTool = null;
@@ -179,6 +180,37 @@ document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
   });
 });
 
+// --- Building toggles ---
+
+function updateBuildingToggles() {
+  document.querySelectorAll('.building-toggle').forEach(cb => {
+    const building = cb.dataset.building;
+    const excluded = state.excluded.includes(building);
+    cb.checked = !excluded;
+    const btn = cb.parentElement.querySelector('.tool-btn');
+    btn.disabled = excluded;
+    if (excluded && activeTool === btn.dataset.tool) {
+      activeTool = null;
+      document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('active-tool-label').textContent = 'none';
+    }
+  });
+}
+
+document.querySelectorAll('.building-toggle').forEach(cb => {
+  cb.addEventListener('change', () => {
+    const building = cb.dataset.building;
+    if (cb.checked) {
+      state.excluded = state.excluded.filter(b => b !== building);
+    } else {
+      if (!state.excluded.includes(building)) {
+        state.excluded.push(building);
+      }
+    }
+    updateBuildingToggles();
+  });
+});
+
 // --- Optimise ---
 
 document.getElementById('btn-optimise').addEventListener('click', async () => {
@@ -190,7 +222,7 @@ document.getElementById('btn-optimise').addEventListener('click', async () => {
     const [r, c] = key.split(',').map(Number);
     return { row: r, col: c, building };
   });
-  const payload = { tiles: tilesArr, cities: state.cities, pinned: pinnedArr };
+  const payload = { tiles: tilesArr, cities: state.cities, pinned: pinnedArr, excluded: state.excluded };
 
   const resp = await fetch('/optimize', {
     method: 'POST',
@@ -251,9 +283,11 @@ document.getElementById('file-input').addEventListener('change', e => {
     try {
       state = JSON.parse(ev.target.result);
       if (!state.pinned) state.pinned = {};
+      if (!state.excluded) state.excluded = [];
       nextCityId = (state.cities.reduce((m, c) => Math.max(m, c.id), 0)) + 1;
       resultPlacements = {};
       resultMarkets = [];
+      updateBuildingToggles();
       renderGrid();
     } catch {
       alert('Invalid JSON file');
@@ -273,3 +307,4 @@ document.getElementById('btn-resize').addEventListener('click', () => {
 // --- Init ---
 
 renderGrid();
+updateBuildingToggles();

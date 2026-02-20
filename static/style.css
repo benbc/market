@@ -134,3 +134,18 @@ body {
   font-size: 12px;
   min-height: 40px;
 }
+
+.building-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.building-row .tool-btn {
+  flex: 1;
+}
+
+.tool-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

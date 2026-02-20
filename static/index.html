@@ -21,13 +21,34 @@
     <button class="tool-btn" data-tool="city">Place City</button>
     <hr>
     <h2>Buildings</h2>
-    <button class="tool-btn" data-tool="pin-sawmill">Sawmill</button>
-    <button class="tool-btn" data-tool="pin-windmill">Windmill</button>
-    <button class="tool-btn" data-tool="pin-forge">Forge</button>
-    <button class="tool-btn" data-tool="pin-market">Market</button>
-    <button class="tool-btn" data-tool="pin-lumber_hut">Lumber Hut</button>
-    <button class="tool-btn" data-tool="pin-farm">Farm</button>
-    <button class="tool-btn" data-tool="pin-mine">Mine</button>
+    <div class="building-row">
+      <input type="checkbox" class="building-toggle" data-building="sawmill" checked>
+      <button class="tool-btn" data-tool="pin-sawmill">Sawmill</button>
+    </div>
+    <div class="building-row">
+      <input type="checkbox" class="building-toggle" data-building="windmill" checked>
+      <button class="tool-btn" data-tool="pin-windmill">Windmill</button>
+    </div>
+    <div class="building-row">
+      <input type="checkbox" class="building-toggle" data-building="forge" checked>
+      <button class="tool-btn" data-tool="pin-forge">Forge</button>
+    </div>
+    <div class="building-row">
+      <input type="checkbox" class="building-toggle" data-building="market" checked>
+      <button class="tool-btn" data-tool="pin-market">Market</button>
+    </div>
+    <div class="building-row">
+      <input type="checkbox" class="building-toggle" data-building="lumber_hut" checked>
+      <button class="tool-btn" data-tool="pin-lumber_hut">Lumber Hut</button>
+    </div>
+    <div class="building-row">
+      <input type="checkbox" class="building-toggle" data-building="farm" checked>
+      <button class="tool-btn" data-tool="pin-farm">Farm</button>
+    </div>
+    <div class="building-row">
+      <input type="checkbox" class="building-toggle" data-building="mine" checked>
+      <button class="tool-btn" data-tool="pin-mine">Mine</button>
+    </div>
     <hr>
     <h2>Actions</h2>
     <button id="btn-optimise">Optimise</button>
