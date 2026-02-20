@@ -532,3 +532,37 @@ def test_excluded_both_lumber_hut_and_farm_forest_empty():
     occupied = {(0, 1): 'windmill'}
     result, burns = place_resource_buildings(tiles, occupied, excluded_buildings=frozenset({'lumber_hut', 'farm'}))
     assert (0, 0) not in result
+
+
+def test_optimise_excludes_sawmill():
+    """With sawmill excluded, no sawmill should appear in placements."""
+    tiles = {
+        (0, 0): 'field', (0, 1): 'field', (0, 2): 'forest',
+        (1, 0): 'field', (1, 1): 'field', (1, 2): 'field+crop',
+    }
+    cities = [{'id': 1, 'row': 1, 'col': 1, 'expanded': False}]
+    data = {
+        'tiles': [{'row': r, 'col': c, 'terrain': t} for (r, c), t in tiles.items()],
+        'cities': cities,
+        'excluded': ['sawmill'],
+    }
+    result = optimise(data)
+    for p in result['placements']:
+        assert p['building'] != 'sawmill'
+
+
+def test_optimise_excludes_lumber_hut():
+    """With lumber_hut excluded, no lumber_hut in placements."""
+    tiles = {
+        (0, 0): 'forest', (0, 1): 'field',
+        (1, 0): 'field', (1, 1): 'field',
+    }
+    cities = [{'id': 1, 'row': 0, 'col': 0, 'expanded': False}]
+    data = {
+        'tiles': [{'row': r, 'col': c, 'terrain': t} for (r, c), t in tiles.items()],
+        'cities': cities,
+        'excluded': ['lumber_hut'],
+    }
+    result = optimise(data)
+    for p in result['placements']:
+        assert p['building'] != 'lumber_hut'
