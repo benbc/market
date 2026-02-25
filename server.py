@@ -22,7 +22,8 @@ def territory():
         return jsonify({'error': 'Invalid JSON'}), 400
     tile_positions = [(t['row'], t['col']) for t in data.get('tiles', [])]
     cities = data.get('cities', [])
-    ownership = assign_ownership(tile_positions, cities)
+    events = data.get('events')
+    ownership = assign_ownership(tile_positions, cities, events)
     return jsonify({
         'ownership': {f"{r},{c}": city_id for (r, c), city_id in ownership.items()}
     })

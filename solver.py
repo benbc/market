@@ -30,27 +30,37 @@ def city_territory(row: int, col: int, expanded: bool) -> set:
 def chebyshev(a: tuple, b: tuple) -> int:
     return max(abs(a[0] - b[0]), abs(a[1] - b[1]))
 
-def assign_ownership(tile_positions: list, cities: list) -> dict:
+def assign_ownership(tile_positions: list, cities: list, events: list = None) -> dict:
     """
     Map each tile position to the id of its owning city.
-    Nearest city wins; ties broken by city order (first in list).
-    Tiles not in any city's territory are omitted.
+    If events is provided, process founding/expansion in that order.
+    A 'found' event claims the base 3x3; an 'expand' event claims the
+    outer ring (5x5 minus 3x3). Already-claimed tiles are never taken.
+    Falls back to processing cities in list order if no events given.
     """
+    positions = set(tile_positions)
     ownership = {}
-    for pos in tile_positions:
-        best_city = None
-        best_dist = float('inf')
-        for city in cities:
-            city_pos = (city['row'], city['col'])
-            territory = city_territory(city['row'], city['col'], city['expanded'])
-            if pos not in territory:
+    if events:
+        city_by_id = {c['id']: c for c in cities}
+        for event in events:
+            city = city_by_id.get(event['city_id'])
+            if city is None:
                 continue
-            dist = chebyshev(pos, city_pos)
-            if dist < best_dist:
-                best_dist = dist
-                best_city = city['id']
-        if best_city is not None:
-            ownership[pos] = best_city
+            if event['action'] == 'found':
+                territory = city_territory(city['row'], city['col'], expanded=False)
+            else:
+                full = city_territory(city['row'], city['col'], expanded=True)
+                base = city_territory(city['row'], city['col'], expanded=False)
+                territory = full - base
+            for pos in territory:
+                if pos in positions and pos not in ownership:
+                    ownership[pos] = city['id']
+    else:
+        for city in cities:
+            territory = city_territory(city['row'], city['col'], city.get('expanded', False))
+            for pos in territory:
+                if pos in positions and pos not in ownership:
+                    ownership[pos] = city['id']
     return ownership
 
 def place_resource_buildings(tiles: dict, occupied: dict, excluded_buildings: frozenset = frozenset()) -> tuple:
@@ -274,7 +284,8 @@ def optimise(data: dict, restarts: int = 5) -> dict:
     pinned_positions = frozenset(pinned.keys())
     excluded_buildings = frozenset(data.get('excluded', []))
     all_positions = list(tiles.keys())
-    ownership = assign_ownership(all_positions, cities)
+    events = data.get('events')
+    ownership = assign_ownership(all_positions, cities, events)
     owned_positions = frozenset(ownership.keys())
 
     cities_combos = []

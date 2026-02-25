@@ -35,6 +35,7 @@ let state = {
   cols: 10,
   tiles: {},     // "r,c" -> terrain string
   cities: [],    // {id, row, col, expanded}
+  events: [],    // [{action: "found"|"expand", city_id}]
   pinned: {},    // "r,c" -> building name
   excluded: [],  // building names excluded from solver
 };
@@ -63,7 +64,7 @@ async function fetchTerritory() {
   const resp = await fetch('/territory', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tiles: tilesArr, cities: state.cities }),
+    body: JSON.stringify({ tiles: tilesArr, cities: state.cities, events: state.events }),
   });
   const result = await resp.json();
   territoryOwnership = result.ownership;
@@ -173,9 +174,13 @@ function applyTool(r, c) {
   if (activeTool === 'city') {
     const existingIdx = state.cities.findIndex(ct => ct.row === r && ct.col === c);
     if (existingIdx >= 0) {
+      const removedId = state.cities[existingIdx].id;
       state.cities.splice(existingIdx, 1);
+      state.events = state.events.filter(e => e.city_id !== removedId);
     } else {
-      state.cities.push({ id: nextCityId++, row: r, col: c, expanded: false });
+      const id = nextCityId++;
+      state.cities.push({ id, row: r, col: c, expanded: false });
+      state.events.push({ action: 'found', city_id: id });
     }
     cityChanged = true;
   } else if (activeTool === 'empty') {
@@ -223,6 +228,13 @@ function onTileRightClick(e) {
   const city = state.cities.find(ct => ct.row === r && ct.col === c);
   if (city) {
     city.expanded = !city.expanded;
+    if (city.expanded) {
+      state.events.push({ action: 'expand', city_id: city.id });
+    } else {
+      state.events = state.events.filter(
+        e => !(e.action === 'expand' && e.city_id === city.id)
+      );
+    }
     fetchTerritory().then(() => renderGrid());
   }
 }
@@ -282,7 +294,7 @@ document.getElementById('btn-optimise').addEventListener('click', async () => {
     const [r, c] = key.split(',').map(Number);
     return { row: r, col: c, building };
   });
-  const payload = { tiles: tilesArr, cities: state.cities, pinned: pinnedArr, excluded: state.excluded };
+  const payload = { tiles: tilesArr, cities: state.cities, events: state.events, pinned: pinnedArr, excluded: state.excluded };
 
   const resp = await fetch('/optimize', {
     method: 'POST',
@@ -343,6 +355,7 @@ document.getElementById('file-input').addEventListener('change', e => {
     try {
       state = JSON.parse(ev.target.result);
       if (!state.pinned) state.pinned = {};
+      if (!state.events) state.events = [];
       if (!state.excluded) state.excluded = [];
       nextCityId = (state.cities.reduce((m, c) => Math.max(m, c.id), 0)) + 1;
       resultPlacements = {};

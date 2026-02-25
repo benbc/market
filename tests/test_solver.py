@@ -78,6 +78,14 @@ def test_ownership_single_city():
     assert ownership[(0, 1)] == 1
     assert ownership[(1, 1)] == 1
 
+def test_ownership_empty_events_falls_back():
+    """Empty events list should behave same as no events (use city list order)."""
+    cities = [{'id': 1, 'row': 0, 'col': 0, 'expanded': False}]
+    tile_positions = [(0, 0), (0, 1)]
+    ownership = assign_ownership(tile_positions, cities, events=[])
+    assert ownership[(0, 0)] == 1
+    assert ownership[(0, 1)] == 1
+
 def test_ownership_nearest_city():
     cities = [
         {'id': 1, 'row': 0, 'col': 0, 'expanded': True},
@@ -96,6 +104,59 @@ def test_ownership_tie_broken_by_order():
     tile_positions = [(0, 1)]  # equidistant
     ownership = assign_ownership(tile_positions, cities)
     assert ownership[(0, 1)] == 1  # first city wins
+
+def test_ownership_expansion_after_later_city_does_not_steal():
+    """City 2 expands after city 1 is founded; can't take city 1's base tiles."""
+    cities = [
+        {'id': 1, 'row': 0, 'col': 3, 'expanded': False},
+        {'id': 2, 'row': 0, 'col': 0, 'expanded': True},
+    ]
+    events = [
+        {'action': 'found', 'city_id': 2},
+        {'action': 'found', 'city_id': 1},
+        {'action': 'expand', 'city_id': 2},
+    ]
+    # (0,2) is in city 1's base 3x3 (founded second) AND city 2's expansion ring.
+    # City 1 was founded before city 2 expanded, so city 1 owns it.
+    tile_positions = [(0, 2)]
+    ownership = assign_ownership(tile_positions, cities, events)
+    assert ownership[(0, 2)] == 1
+
+
+def test_ownership_expansion_before_later_city_claims_tiles():
+    """City 1 expands before city 2 is founded; claims tiles city 2 would want."""
+    cities = [
+        {'id': 1, 'row': 0, 'col': 0, 'expanded': True},
+        {'id': 2, 'row': 0, 'col': 2, 'expanded': False},
+    ]
+    events = [
+        {'action': 'found', 'city_id': 1},
+        {'action': 'expand', 'city_id': 1},
+        {'action': 'found', 'city_id': 2},
+    ]
+    # (0,2) is in city 1's expansion ring AND city 2's base 3x3.
+    # City 1 expanded before city 2 was founded, so city 1 owns it.
+    tile_positions = [(0, 2)]
+    ownership = assign_ownership(tile_positions, cities, events)
+    assert ownership[(0, 2)] == 1
+
+
+def test_ownership_expansion_claims_unclaimed_tiles():
+    """Expansion claims tiles outside any previously claimed territory."""
+    cities = [
+        {'id': 1, 'row': 0, 'col': 0, 'expanded': False},
+        {'id': 2, 'row': 0, 'col': 4, 'expanded': True},
+    ]
+    events = [
+        {'action': 'found', 'city_id': 1},
+        {'action': 'found', 'city_id': 2},
+        {'action': 'expand', 'city_id': 2},
+    ]
+    # (0,2) is outside city 1's base 3x3 and inside city 2's expansion ring
+    tile_positions = [(0, 2)]
+    ownership = assign_ownership(tile_positions, cities, events)
+    assert ownership[(0, 2)] == 2
+
 
 def test_mine_on_metal():
     tiles = {(0, 0): 'mountain+metal', (0, 1): 'field'}
