@@ -45,6 +45,29 @@ let resultPlacements = {};  // "r,c" -> building string
 let resultMarkets = [];     // [{row, col, city_id, income}]
 let resultBurns = {};       // "r,c" -> true
 let nextCityId = 1;
+let territoryOwnership = {};  // "r,c" -> city_id
+
+// --- Territory ---
+
+async function fetchTerritory() {
+  if (state.cities.length === 0) {
+    territoryOwnership = {};
+    return;
+  }
+  const tilesArr = [];
+  for (let r = 0; r < state.rows; r++) {
+    for (let c = 0; c < state.cols; c++) {
+      tilesArr.push({ row: r, col: c });
+    }
+  }
+  const resp = await fetch('/territory', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tiles: tilesArr, cities: state.cities }),
+  });
+  const result = await resp.json();
+  territoryOwnership = result.ownership;
+}
 
 // --- Grid rendering ---
 
@@ -116,6 +139,24 @@ function renderGrid() {
 
       div.appendChild(content);
 
+      // Territory borders — draw on edges where ownership differs
+      const owner = territoryOwnership[key];
+      if (owner !== undefined) {
+        const neighbors = [
+          { dr: -1, dc: 0, side: 'Top' },
+          { dr: 1, dc: 0, side: 'Bottom' },
+          { dr: 0, dc: -1, side: 'Left' },
+          { dr: 0, dc: 1, side: 'Right' },
+        ];
+        for (const { dr, dc, side } of neighbors) {
+          const nKey = `${r + dr},${c + dc}`;
+          const nOwner = territoryOwnership[nKey];
+          if (nOwner !== owner) {
+            div.style[`border${side}`] = '3px solid red';
+          }
+        }
+      }
+
       div.addEventListener('mousedown', onTileMouseDown);
       div.addEventListener('mouseenter', onTileMouseEnter);
       div.addEventListener('contextmenu', onTileRightClick);
@@ -128,6 +169,7 @@ function renderGrid() {
 
 function applyTool(r, c) {
   const key = `${r},${c}`;
+  let cityChanged = false;
   if (activeTool === 'city') {
     const existingIdx = state.cities.findIndex(ct => ct.row === r && ct.col === c);
     if (existingIdx >= 0) {
@@ -135,6 +177,7 @@ function applyTool(r, c) {
     } else {
       state.cities.push({ id: nextCityId++, row: r, col: c, expanded: false });
     }
+    cityChanged = true;
   } else if (activeTool === 'empty') {
     delete state.tiles[key];
     delete state.pinned[key];
@@ -148,7 +191,11 @@ function applyTool(r, c) {
   } else if (activeTool) {
     state.tiles[key] = activeTool;
   }
-  renderGrid();
+  if (cityChanged) {
+    fetchTerritory().then(() => renderGrid());
+  } else {
+    renderGrid();
+  }
 }
 
 function onTileMouseDown(e) {
@@ -176,7 +223,7 @@ function onTileRightClick(e) {
   const city = state.cities.find(ct => ct.row === r && ct.col === c);
   if (city) {
     city.expanded = !city.expanded;
-    renderGrid();
+    fetchTerritory().then(() => renderGrid());
   }
 }
 
@@ -301,7 +348,7 @@ document.getElementById('file-input').addEventListener('change', e => {
       resultPlacements = {};
       resultMarkets = [];
       updateBuildingToggles();
-      renderGrid();
+      fetchTerritory().then(() => renderGrid());
     } catch {
       alert('Invalid JSON file');
     }
