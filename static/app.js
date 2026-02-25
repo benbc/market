@@ -72,8 +72,9 @@ function renderGrid() {
       const content = document.createElement('div');
       content.className = 'tile-content';
 
-      // Terrain emoji
-      if (terrain !== 'empty') {
+      // Terrain emoji (skip for colour-only terrains)
+      const DEAD_TERRAIN = new Set(['field', 'mountain', 'water', 'ocean']);
+      if (terrain !== 'empty' && !DEAD_TERRAIN.has(terrain)) {
         content.textContent = TERRAIN_EMOJI[terrain] || '';
       }
 
