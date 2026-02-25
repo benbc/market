@@ -551,6 +551,30 @@ def test_optimise_excludes_sawmill():
         assert p['building'] != 'sawmill'
 
 
+def test_optimise_no_buildings_outside_territory():
+    """Resource buildings should only be placed on tiles within city territory."""
+    # City at (1,1) unexpanded -> 3x3 territory covering rows 0-2, cols 0-2
+    # Tiles at (0,4) and (1,4) are well outside territory
+    tile_list = [
+        ((0, 0), 'forest'),
+        ((0, 1), 'field'),
+        ((0, 2), 'field+crop'),
+        ((1, 0), 'field'),
+        ((1, 1), 'field'),
+        ((1, 2), 'mountain+metal'),
+        ((2, 0), 'field'),
+        ((2, 1), 'field'),
+        ((2, 2), 'field'),
+        ((0, 4), 'forest'),
+        ((1, 4), 'mountain+metal'),
+    ]
+    cities = [{'id': 1, 'row': 1, 'col': 1, 'expanded': False}]
+    result = optimise(_make_input(tile_list, cities))
+    placed = {(p['row'], p['col']) for p in result['placements']}
+    assert (0, 4) not in placed, "Building placed outside city territory"
+    assert (1, 4) not in placed, "Building placed outside city territory"
+
+
 def test_optimise_excludes_lumber_hut():
     """With lumber_hut excluded, no lumber_hut in placements."""
     tiles = {

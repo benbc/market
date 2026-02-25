@@ -186,19 +186,21 @@ def city_placements(tiles: dict, city_territory_positions: set, pinned_positions
 
 import random
 
-def _build_full_placements(city_assignments: dict, tiles: dict, excluded_buildings: frozenset = frozenset()) -> tuple:
+def _build_full_placements(city_assignments: dict, tiles: dict, excluded_buildings: frozenset = frozenset(), owned_positions: frozenset = None) -> tuple:
     """
     Given per-city production/market assignments (pos->building),
     fill remaining eligible tiles with resource buildings.
     Returns (placements dict pos->building, burns set of burned positions).
+    If owned_positions is given, only place resource buildings on owned tiles.
     """
     occupied = dict(city_assignments)
-    resources, resource_burns = place_resource_buildings(tiles, occupied, excluded_buildings)
+    eligible_tiles = {p: t for p, t in tiles.items() if p in owned_positions} if owned_positions else tiles
+    resources, resource_burns = place_resource_buildings(eligible_tiles, occupied, excluded_buildings)
     return {**occupied, **resources}, resource_burns
 
-def _score(city_assignments: dict, tiles: dict, excluded_buildings: frozenset = frozenset()) -> int:
+def _score(city_assignments: dict, tiles: dict, excluded_buildings: frozenset = frozenset(), owned_positions: frozenset = None) -> int:
     """Total Market income given current city assignments."""
-    placements, _ = _build_full_placements(city_assignments, tiles, excluded_buildings)
+    placements, _ = _build_full_placements(city_assignments, tiles, excluded_buildings, owned_positions)
     return sum(
         market_income(pos, placements)
         for pos, bldg in placements.items()
@@ -208,7 +210,7 @@ def _score(city_assignments: dict, tiles: dict, excluded_buildings: frozenset = 
 def _random_assignment(combos: list) -> dict:
     return random.choice(combos) if combos else {}
 
-def _optimise_once(cities_combos: list, tiles: dict, pinned: dict = None, excluded_buildings: frozenset = frozenset()) -> tuple:
+def _optimise_once(cities_combos: list, tiles: dict, pinned: dict = None, excluded_buildings: frozenset = frozenset(), owned_positions: frozenset = None) -> tuple:
     """
     One run of coordinate descent from a random start.
     cities_combos: list of (city_id, territory_positions, combos_list)
@@ -242,7 +244,7 @@ def _optimise_once(cities_combos: list, tiles: dict, pinned: dict = None, exclud
                     pos = combo.get(role)
                     if pos is not None:
                         candidate[pos] = role
-                s = _score(candidate, tiles, excluded_buildings)
+                s = _score(candidate, tiles, excluded_buildings, owned_positions)
                 if s > best_score:
                     best_score = s
                     best_combo = combo
@@ -258,7 +260,7 @@ def _optimise_once(cities_combos: list, tiles: dict, pinned: dict = None, exclud
             city_selected[i] = (city_id, territory, combos, best_combo)
             current = new_assignments
 
-    return _score(current, tiles, excluded_buildings), current, city_selected
+    return _score(current, tiles, excluded_buildings, owned_positions), current, city_selected
 
 def optimise(data: dict, restarts: int = 5) -> dict:
     """
@@ -273,6 +275,7 @@ def optimise(data: dict, restarts: int = 5) -> dict:
     excluded_buildings = frozenset(data.get('excluded', []))
     all_positions = list(tiles.keys())
     ownership = assign_ownership(all_positions, cities)
+    owned_positions = frozenset(ownership.keys())
 
     cities_combos = []
     for city in cities:
@@ -288,13 +291,13 @@ def optimise(data: dict, restarts: int = 5) -> dict:
     best_city_selected = []
 
     for _ in range(restarts):
-        score, placements, city_selected = _optimise_once(cities_combos, tiles, pinned, excluded_buildings)
+        score, placements, city_selected = _optimise_once(cities_combos, tiles, pinned, excluded_buildings, owned_positions)
         if score > best_score:
             best_score = score
             best_placements = placements
             best_city_selected = city_selected
 
-    full, resource_burns = _build_full_placements(best_placements, tiles, excluded_buildings)
+    full, resource_burns = _build_full_placements(best_placements, tiles, excluded_buildings, owned_positions)
 
     # Collect burns from multiplier/market combos
     combo_burns = set()
