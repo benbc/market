@@ -53,6 +53,12 @@ function renderGrid() {
   grid.style.gridTemplateColumns = `repeat(${state.cols}, 36px)`;
   grid.innerHTML = '';
 
+  // Margin to accommodate 45° rotation overhang: (√2 - 1)/2 ≈ 0.21 of grid size
+  const tileSize = 37; // 36px tile + 1px gap
+  const overhangV = Math.ceil(state.cols * tileSize * 0.21);
+  const overhangH = Math.ceil(state.rows * tileSize * 0.21);
+  grid.style.margin = `${overhangV}px ${overhangH}px`;
+
   for (let r = 0; r < state.rows; r++) {
     for (let c = 0; c < state.cols; c++) {
       const key = `${r},${c}`;
@@ -62,9 +68,13 @@ function renderGrid() {
       div.dataset.r = r;
       div.dataset.c = c;
 
+      // Content wrapper (counter-rotated so text stays upright)
+      const content = document.createElement('div');
+      content.className = 'tile-content';
+
       // Terrain emoji
       if (terrain !== 'empty') {
-        div.textContent = TERRAIN_EMOJI[terrain] || '';
+        content.textContent = TERRAIN_EMOJI[terrain] || '';
       }
 
       // City marker
@@ -74,7 +84,7 @@ function renderGrid() {
         marker.className = 'city-marker';
         marker.textContent = `C${city.id}${city.expanded ? '+' : ''}`;
         marker.title = 'Right-click to toggle expansion';
-        div.appendChild(marker);
+        content.appendChild(marker);
       }
 
       // Pinned building icon
@@ -83,7 +93,7 @@ function renderGrid() {
         const pin = document.createElement('span');
         pin.className = 'pinned-icon';
         pin.textContent = BUILDING_ABBR[pinnedBldg] || pinnedBldg;
-        div.appendChild(pin);
+        content.appendChild(pin);
       }
 
       // Result icon
@@ -92,7 +102,7 @@ function renderGrid() {
         const icon = document.createElement('span');
         icon.className = 'result-icon';
         icon.textContent = BUILDING_ABBR[bldg] || bldg;
-        div.appendChild(icon);
+        content.appendChild(icon);
       }
 
       // Burn indicator
@@ -100,8 +110,10 @@ function renderGrid() {
         const burn = document.createElement('span');
         burn.className = 'burn-icon';
         burn.textContent = 'BURN';
-        div.appendChild(burn);
+        content.appendChild(burn);
       }
+
+      div.appendChild(content);
 
       div.addEventListener('mousedown', onTileMouseDown);
       div.addEventListener('mouseenter', onTileMouseEnter);
