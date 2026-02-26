@@ -45,7 +45,7 @@ City B if they are 8-directionally adjacent. Cities cannot be optimised independ
 ### Ideal end-state assumptions
 
 - Every mountain+metal tile gets a Mine
-- Every remaining forest tile gets a Lumber Hut (unless a Forge is placed there)
+- Every remaining forest tile gets a Lumber Hut (unless a Forge is placed there, or the forest is cleared for a Sawmill/Windmill/Market)
 - Every remaining field+crop tile gets a Farm (unless a Sawmill, Windmill, Forge, or Market is placed there)
 - Production multipliers and Markets are placed optimally (subject to one-per-city constraint)
 

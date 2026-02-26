@@ -1,4 +1,4 @@
-from solver import ELIGIBLE, terrain_accepts, is_adjacent, city_territory, assign_ownership, place_resource_buildings, multiplier_level, market_income, city_placements, optimise, _optimise_once, COMBO_BUILDINGS
+from solver import ELIGIBLE, terrain_accepts, is_adjacent, city_territory, assign_ownership, place_resource_buildings, multiplier_level, market_income, city_placements, optimise, _optimise_once, _score, COMBO_BUILDINGS, BUILDING_COST
 
 def test_field_accepts_sawmill():
     assert 'sawmill' in ELIGIBLE['field']
@@ -159,24 +159,27 @@ def test_ownership_expansion_claims_unclaimed_tiles():
 
 
 def test_mine_on_metal():
+    """Without an adjacent forge, mine should NOT be placed."""
     tiles = {(0, 0): 'mountain+metal', (0, 1): 'field'}
     occupied = {}
     result, burns = place_resource_buildings(tiles, occupied)
-    assert result[(0, 0)] == 'mine'
+    assert (0, 0) not in result
 
 def test_lumber_hut_on_free_forest():
+    """Without an adjacent sawmill, lumber_hut should NOT be placed."""
     tiles = {(0, 0): 'forest', (0, 1): 'forest'}
     occupied = {(0, 0): 'forge'}  # forge already there
     result, burns = place_resource_buildings(tiles, occupied)
     assert (0, 0) not in result   # forge occupies it
-    assert result[(0, 1)] == 'lumber_hut'
+    assert (0, 1) not in result   # no adjacent sawmill
 
 def test_farm_on_free_crop():
+    """Without an adjacent windmill, farm should NOT be placed."""
     tiles = {(0, 0): 'field+crop', (0, 1): 'field+crop'}
     occupied = {(0, 0): 'market'}
     result, burns = place_resource_buildings(tiles, occupied)
     assert (0, 0) not in result   # market occupies it
-    assert result[(0, 1)] == 'farm'
+    assert (0, 1) not in result   # no adjacent windmill
 
 def test_no_resource_on_plain_field():
     tiles = {(0, 0): 'field'}
@@ -201,11 +204,12 @@ def test_forest_with_adjacent_sawmill_stays_lumber_hut():
     assert (0, 0) not in burns
 
 
-def test_forest_with_no_adjacent_multipliers_stays_lumber_hut():
+def test_forest_with_no_adjacent_multipliers_stays_empty():
+    """Without an adjacent sawmill, forest should NOT get a lumber_hut."""
     tiles = {(0, 0): 'forest'}
     occupied = {}
     result, burns = place_resource_buildings(tiles, occupied)
-    assert result[(0, 0)] == 'lumber_hut'
+    assert (0, 0) not in result
     assert (0, 0) not in burns
 
 def test_sawmill_level_no_huts():
@@ -324,54 +328,54 @@ def test_forge_on_forest():
     assert len(forge_on_forest) > 0
 
 def test_sawmill_not_on_forest():
-    """Sawmill was not valid on forest before burning was added; now it is via burn."""
+    """Sawmill is not natively valid on forest; it is via clear."""
     tiles = {(0, 0): 'forest'}
     territory = {(0, 0)}
     combos = city_placements(tiles, city_territory_positions=territory)
     saw_on_forest = [c for c in combos if c['sawmill'] == (0, 0)]
     assert len(saw_on_forest) > 0
-    # All such combos must include the position in burns
+    # All such combos must include the position in clears
     for c in saw_on_forest:
-        assert (0, 0) in c['burns']
+        assert (0, 0) in c['clears']
 
 
-def test_forest_as_sawmill_candidate_via_burn():
+def test_forest_as_sawmill_candidate_via_clear():
     tiles = {(0, 0): 'forest', (0, 1): 'field'}
     territory = {(0, 0), (0, 1)}
     combos = city_placements(tiles, city_territory_positions=territory)
     saw_on_forest = [c for c in combos if c['sawmill'] == (0, 0)]
     assert len(saw_on_forest) > 0
     for c in saw_on_forest:
-        assert (0, 0) in c['burns']
+        assert (0, 0) in c['clears']
 
 
-def test_forest_as_market_candidate_via_burn():
+def test_forest_as_market_candidate_via_clear():
     tiles = {(0, 0): 'forest', (0, 1): 'field'}
     territory = {(0, 0), (0, 1)}
     combos = city_placements(tiles, city_territory_positions=territory)
     mkt_on_forest = [c for c in combos if c['market'] == (0, 0)]
     assert len(mkt_on_forest) > 0
     for c in mkt_on_forest:
-        assert (0, 0) in c['burns']
+        assert (0, 0) in c['clears']
 
 
-def test_forge_on_forest_no_burn():
-    """Forge is natively valid on forest, so placing it there should NOT require a burn."""
+def test_forge_on_forest_no_clear():
+    """Forge is natively valid on forest, so placing it there should NOT require a clear."""
     tiles = {(0, 0): 'forest', (0, 1): 'field'}
     territory = {(0, 0), (0, 1)}
     combos = city_placements(tiles, city_territory_positions=territory)
     forge_on_forest = [c for c in combos if c['forge'] == (0, 0)]
     assert len(forge_on_forest) > 0
     for c in forge_on_forest:
-        assert (0, 0) not in c['burns']
+        assert (0, 0) not in c['clears']
 
 
-def test_combo_burns_is_frozenset():
+def test_combo_clears_is_frozenset():
     tiles = {(0, 0): 'field'}
     territory = {(0, 0)}
     combos = city_placements(tiles, city_territory_positions=territory)
     for c in combos:
-        assert isinstance(c['burns'], frozenset)
+        assert isinstance(c['clears'], frozenset)
 
 def _make_input(tile_list, city_list):
     return {
@@ -415,11 +419,15 @@ def test_result_structure():
     assert 'placements' in result
     assert 'markets' in result
     assert 'total_income' in result
+    assert 'total_cost' in result
+    assert 'clears' in result
     assert 'burns' in result
     for p in result['placements']:
         assert 'row' in p and 'col' in p and 'building' in p
     for m in result['markets']:
         assert 'row' in m and 'col' in m and 'income' in m and 'city_id' in m
+    for cl in result['clears']:
+        assert 'row' in cl and 'col' in cl
     for b in result['burns']:
         assert 'row' in b and 'col' in b
 
@@ -522,6 +530,34 @@ def test_optimise_burns_from_resource_greedy():
     assert isinstance(result['burns'], list)
 
 
+def test_optimise_clears_for_multiplier_on_forest():
+    """When a sawmill is placed on a forest tile, it should appear in clears, not burns."""
+    # Layout: forest surrounded by fields with crops, one city.
+    # The solver should place a sawmill on the forest (clearing it) when it's optimal.
+    tile_list = [
+        ((0, 0), 'forest'),
+        ((0, 1), 'field'),
+        ((0, 2), 'field'),
+        ((1, 0), 'forest'),
+        ((1, 1), 'field'),
+        ((1, 2), 'field+crop'),
+        ((2, 0), 'forest'),
+        ((2, 1), 'field'),
+        ((2, 2), 'mountain+metal'),
+    ]
+    cities = [{'id': 1, 'row': 1, 'col': 1, 'expanded': False}]
+    result = optimise(_make_input(tile_list, cities))
+    clears_set = {(c['row'], c['col']) for c in result['clears']}
+    burns_set = {(b['row'], b['col']) for b in result['burns']}
+    # Clears and burns should not overlap
+    assert clears_set.isdisjoint(burns_set)
+    # Any cleared position should have a multiplier or market placed on it
+    placements = {(p['row'], p['col']): p['building'] for p in result['placements']}
+    for pos in clears_set:
+        assert pos in placements
+        assert placements[pos] in ('sawmill', 'windmill', 'market')
+
+
 def test_excluded_building_not_in_combos():
     """An excluded building should never appear in any combo."""
     tiles = {(0, 0): 'field', (0, 1): 'field', (0, 2): 'field'}
@@ -579,12 +615,12 @@ def test_excluded_lumber_hut_forest_burns_to_farm_if_windmill():
     assert (0, 0) in burns
 
 
-def test_excluded_farm_forest_stays_lumber_hut():
-    """With farm excluded, forest always becomes lumber_hut regardless of adjacent windmills."""
+def test_excluded_farm_forest_stays_empty_without_sawmill():
+    """With farm excluded and no adjacent sawmill, forest gets nothing."""
     tiles = {(0, 0): 'forest', (0, 1): 'field'}
     occupied = {(0, 1): 'windmill'}
     result, burns = place_resource_buildings(tiles, occupied, excluded_buildings=frozenset({'farm'}))
-    assert result[(0, 0)] == 'lumber_hut'
+    assert (0, 0) not in result
     assert (0, 0) not in burns
 
 
@@ -651,3 +687,89 @@ def test_optimise_excludes_lumber_hut():
     result = optimise(data)
     for p in result['placements']:
         assert p['building'] != 'lumber_hut'
+
+
+# --- Adjacency-filtered resource placement tests ---
+
+def test_mine_placed_adjacent_to_forge():
+    tiles = {(0, 0): 'mountain+metal', (0, 1): 'forest'}
+    occupied = {(0, 1): 'forge'}
+    result, burns = place_resource_buildings(tiles, occupied)
+    assert result[(0, 0)] == 'mine'
+
+
+def test_mine_not_placed_without_forge():
+    tiles = {(0, 0): 'mountain+metal', (0, 1): 'field'}
+    occupied = {(0, 1): 'sawmill'}
+    result, burns = place_resource_buildings(tiles, occupied)
+    assert (0, 0) not in result
+
+
+def test_farm_placed_adjacent_to_windmill():
+    tiles = {(0, 0): 'field+crop', (0, 1): 'field'}
+    occupied = {(0, 1): 'windmill'}
+    result, burns = place_resource_buildings(tiles, occupied)
+    assert result[(0, 0)] == 'farm'
+
+
+def test_farm_not_placed_without_windmill():
+    tiles = {(0, 0): 'field+crop', (0, 1): 'field'}
+    occupied = {(0, 1): 'sawmill'}
+    result, burns = place_resource_buildings(tiles, occupied)
+    assert (0, 0) not in result
+
+
+def test_lumber_hut_placed_adjacent_to_sawmill():
+    tiles = {(0, 0): 'forest', (0, 1): 'field'}
+    occupied = {(0, 1): 'sawmill'}
+    result, burns = place_resource_buildings(tiles, occupied)
+    assert result[(0, 0)] == 'lumber_hut'
+
+
+def test_lumber_hut_not_placed_without_sawmill():
+    tiles = {(0, 0): 'forest', (0, 1): 'field'}
+    occupied = {(0, 1): 'forge'}
+    result, burns = place_resource_buildings(tiles, occupied)
+    assert (0, 0) not in result
+
+
+# --- Cost model tests ---
+
+def test_score_returns_income_cost_tuple():
+    """_score() should return a 2-tuple (income, -cost)."""
+    tiles = {(0, 0): 'field', (0, 1): 'field'}
+    assignments = {(0, 0): 'sawmill'}
+    result = _score(assignments, tiles, owned_positions=frozenset(tiles.keys()))
+    assert isinstance(result, tuple)
+    assert len(result) == 2
+
+
+def test_tiebreak_prefers_lower_cost():
+    """With equal income (0), the score with fewer buildings should win."""
+    tiles = {(0, 0): 'field', (0, 1): 'field'}
+    owned = frozenset(tiles.keys())
+    score_empty = _score({}, tiles, owned_positions=owned)
+    score_sawmill = _score({(0, 0): 'sawmill'}, tiles, owned_positions=owned)
+    # Both have 0 market income, but sawmill costs 5
+    assert score_empty[0] == score_sawmill[0] == 0
+    assert score_empty > score_sawmill  # empty is cheaper
+
+
+def test_cost_excludes_pinned():
+    """Pinned buildings should not be counted in cost."""
+    tiles = {(0, 0): 'field', (0, 1): 'field'}
+    owned = frozenset(tiles.keys())
+    pinned = frozenset({(0, 0)})
+    score_pinned = _score({(0, 0): 'sawmill'}, tiles, owned_positions=owned, pinned_positions=pinned)
+    score_unpinned = _score({(0, 0): 'sawmill'}, tiles, owned_positions=owned, pinned_positions=frozenset())
+    # Pinned sawmill should cost 0; unpinned should cost 5
+    assert score_pinned[1] > score_unpinned[1]  # -0 > -5
+
+
+def test_optimise_returns_total_cost():
+    tile_list = [((0, 0), 'field'), ((0, 1), 'field')]
+    cities = [{'id': 1, 'row': 0, 'col': 0, 'expanded': False}]
+    result = optimise(_make_input(tile_list, cities))
+    assert 'total_cost' in result
+    assert isinstance(result['total_cost'], (int, float))
+    assert result['total_cost'] >= 0

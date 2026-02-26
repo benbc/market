@@ -104,7 +104,8 @@ body {
 .tile-content .city-marker,
 .tile-content .pinned-icon,
 .tile-content .result-icon,
-.tile-content .burn-icon {
+.tile-content .burn-icon,
+.tile-content .clear-icon {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
@@ -136,6 +137,14 @@ body {
   font-weight: bold;
   color: #fff;
   background: rgba(255,60,0,0.85);
+}
+
+.tile-content .clear-icon {
+  top: -1px;
+  font-size: 7px;
+  font-weight: bold;
+  color: #fff;
+  background: rgba(0,180,160,0.85);
 }
 
 #summary {

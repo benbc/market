@@ -44,6 +44,7 @@ let activeTool = null;
 let isMouseDown = false;
 let resultPlacements = {};  // "r,c" -> building string
 let resultMarkets = [];     // [{row, col, city_id, income}]
+let resultClears = {};      // "r,c" -> true
 let resultBurns = {};       // "r,c" -> true
 let nextCityId = 1;
 let territoryOwnership = {};  // "r,c" -> city_id
@@ -128,6 +129,14 @@ function renderGrid() {
         icon.className = 'result-icon';
         icon.textContent = BUILDING_ABBR[bldg] || bldg;
         content.appendChild(icon);
+      }
+
+      // Clear indicator
+      if (resultClears[key]) {
+        const clr = document.createElement('span');
+        clr.className = 'clear-icon';
+        clr.textContent = 'CLR';
+        content.appendChild(clr);
       }
 
       // Burn indicator
@@ -308,6 +317,10 @@ document.getElementById('btn-optimise').addEventListener('click', async () => {
     resultPlacements[`${p.row},${p.col}`] = p.building;
   }
   resultMarkets = result.markets;
+  resultClears = {};
+  for (const cl of (result.clears || [])) {
+    resultClears[`${cl.row},${cl.col}`] = true;
+  }
   resultBurns = {};
   for (const b of (result.burns || [])) {
     resultBurns[`${b.row},${b.col}`] = true;
@@ -317,7 +330,7 @@ document.getElementById('btn-optimise').addEventListener('click', async () => {
     .map(m => `City ${m.city_id}: ${m.income}/turn`)
     .join(' | ');
   document.getElementById('summary').textContent =
-    `Total: ${result.total_income}/turn  |  ${summary}`;
+    `Total: ${result.total_income}/turn (cost: ${result.total_cost}★)  |  ${summary}`;
 
   renderGrid();
 });
@@ -327,6 +340,7 @@ document.getElementById('btn-optimise').addEventListener('click', async () => {
 document.getElementById('btn-clear-result').addEventListener('click', () => {
   resultPlacements = {};
   resultMarkets = [];
+  resultClears = {};
   resultBurns = {};
   document.getElementById('summary').textContent = 'No optimisation run yet.';
   renderGrid();
@@ -360,6 +374,8 @@ document.getElementById('file-input').addEventListener('change', e => {
       nextCityId = (state.cities.reduce((m, c) => Math.max(m, c.id), 0)) + 1;
       resultPlacements = {};
       resultMarkets = [];
+      resultClears = {};
+      resultBurns = {};
       updateBuildingToggles();
       fetchTerritory().then(() => renderGrid());
     } catch {
