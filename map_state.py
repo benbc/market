@@ -25,3 +25,19 @@ class MapState:
 
     def occupied_positions(self):
         return set(self.buildings.keys()) | self.monuments | self.lighthouses
+
+    def territory_ownership(self):
+        """Map each defined tile to the id of its owning city. First city claims contested tiles."""
+        ownership = {}
+        for city in self.cities:
+            radius = city['border_level']
+            for dr in range(-radius, radius + 1):
+                for dc in range(-radius, radius + 1):
+                    pos = (city['row'] + dr, city['col'] + dc)
+                    if pos in self.terrain and pos not in ownership:
+                        ownership[pos] = city['id']
+        return ownership
+
+    def tiles_owned_by(self, city_id):
+        """Return set of positions owned by a specific city."""
+        return {pos for pos, cid in self.territory_ownership().items() if cid == city_id}
