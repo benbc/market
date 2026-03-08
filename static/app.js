@@ -30,6 +30,37 @@ const BUILDING_ABBR = {
   mine:        'MN',
 };
 
+// Map building names to the tech that unlocks them
+const BUILDING_TECH = {
+  sawmill:    'mathematics',
+  windmill:   'construction',
+  forge:      'smithery',
+  market:     'trade',
+  lumber_hut: 'forestry',
+  farm:       'farming',
+  mine:       'mining',
+};
+
+// Base techs always available (prerequisites and resource-related)
+const BASE_TECHS = [
+  'hunting', 'organization', 'climbing', 'fishing', 'riding',
+  'forestry', 'archery', 'spiritualism',
+];
+
+// Convert internal terrain string to API format {terrain, resource}
+function terrainToApi(internalTerrain) {
+  const mapping = {
+    'field':          { terrain: 'land', resource: null },
+    'field+crop':     { terrain: 'land', resource: 'crop' },
+    'forest':         { terrain: 'land', resource: 'forest' },
+    'mountain':       { terrain: 'mountain', resource: null },
+    'mountain+metal': { terrain: 'mountain', resource: 'metal' },
+    'water':          { terrain: 'water', resource: null },
+    'ocean':          { terrain: 'ocean', resource: null },
+  };
+  return mapping[internalTerrain] || { terrain: 'land', resource: null };
+}
+
 let state = {
   rows: 10,
   cols: 10,
@@ -43,11 +74,43 @@ let state = {
 let activeTool = null;
 let isMouseDown = false;
 let resultPlacements = {};  // "r,c" -> building string
-let resultMarkets = [];     // [{row, col, city_id, income}]
+let resultMarkets = [];     // [{row, col, income}]
 let resultClears = {};      // "r,c" -> true
 let resultBurns = {};       // "r,c" -> true
 let nextCityId = 1;
 let territoryOwnership = {};  // "r,c" -> city_id
+
+// --- API data conversion ---
+
+function buildTilesArray() {
+  return Object.entries(state.tiles).map(([key, terrain]) => {
+    const [r, c] = key.split(',').map(Number);
+    const api = terrainToApi(terrain);
+    const tile = { row: r, col: c, terrain: api.terrain };
+    if (api.resource) tile.resource = api.resource;
+    return tile;
+  });
+}
+
+function buildCitiesArray() {
+  return state.cities.map(city => ({
+    id: city.id,
+    row: city.row,
+    col: city.col,
+    population: 5,
+    border_level: city.expanded ? 2 : 1,
+  }));
+}
+
+function buildTechsArray() {
+  const techs = new Set(BASE_TECHS);
+  for (const [building, tech] of Object.entries(BUILDING_TECH)) {
+    if (!state.excluded.includes(building)) {
+      techs.add(tech);
+    }
+  }
+  return [...techs];
+}
 
 // --- Territory ---
 
@@ -56,16 +119,13 @@ async function fetchTerritory() {
     territoryOwnership = {};
     return;
   }
-  const tilesArr = [];
-  for (let r = 0; r < state.rows; r++) {
-    for (let c = 0; c < state.cols; c++) {
-      tilesArr.push({ row: r, col: c });
-    }
-  }
   const resp = await fetch('/territory', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tiles: tilesArr, cities: state.cities, events: state.events }),
+    body: JSON.stringify({
+      tiles: buildTilesArray(),
+      cities: buildCitiesArray(),
+    }),
   });
   const result = await resp.json();
   territoryOwnership = result.ownership;
@@ -295,15 +355,16 @@ document.querySelectorAll('.building-toggle').forEach(cb => {
 // --- Optimise ---
 
 document.getElementById('btn-optimise').addEventListener('click', async () => {
-  const tilesArr = Object.entries(state.tiles).map(([key, terrain]) => {
-    const [r, c] = key.split(',').map(Number);
-    return { row: r, col: c, terrain };
-  });
   const pinnedArr = Object.entries(state.pinned).map(([key, building]) => {
     const [r, c] = key.split(',').map(Number);
     return { row: r, col: c, building };
   });
-  const payload = { tiles: tilesArr, cities: state.cities, events: state.events, pinned: pinnedArr, excluded: state.excluded };
+  const payload = {
+    tiles: buildTilesArray(),
+    cities: buildCitiesArray(),
+    pinned: pinnedArr,
+    techs: buildTechsArray(),
+  };
 
   const resp = await fetch('/optimize', {
     method: 'POST',
@@ -317,17 +378,20 @@ document.getElementById('btn-optimise').addEventListener('click', async () => {
     resultPlacements[`${p.row},${p.col}`] = p.building;
   }
   resultMarkets = result.markets;
+
+  // Derive clears/burns from actions list
   resultClears = {};
-  for (const cl of (result.clears || [])) {
-    resultClears[`${cl.row},${cl.col}`] = true;
-  }
   resultBurns = {};
-  for (const b of (result.burns || [])) {
-    resultBurns[`${b.row},${b.col}`] = true;
+  for (const a of (result.actions || [])) {
+    if (a[0] === 'clear_forest') {
+      resultClears[`${a[1][0]},${a[1][1]}`] = true;
+    } else if (a[0] === 'burn_forest') {
+      resultBurns[`${a[1][0]},${a[1][1]}`] = true;
+    }
   }
 
   const summary = result.markets
-    .map(m => `City ${m.city_id}: ${m.income}/turn`)
+    .map(m => `Market (${m.row},${m.col}): ${m.income}/turn`)
     .join(' | ');
   document.getElementById('summary').textContent =
     `Total: ${result.total_income}/turn (cost: ${result.total_cost}★)  |  ${summary}`;
