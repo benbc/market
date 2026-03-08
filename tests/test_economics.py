@@ -1,4 +1,4 @@
-from economics import market_income, total_income, multiplier_level, action_cost, sequence_cost
+from economics import market_income, total_income, multiplier_level, action_cost, sequence_cost, action_population, sequence_population
 from map_state import MapState
 
 
@@ -91,3 +91,33 @@ def test_sequence_cost():
         ('build', (0, 0), 'sawmill'),
     ]
     assert sequence_cost(actions, m) == -1 + 5
+
+
+def test_build_lumber_hut_population():
+    m = MapState(terrain={(0, 0): 'land'}, resources={(0, 0): 'forest'})
+    assert action_population(('build', (0, 0), 'lumber_hut'), m) == 1
+
+
+def test_build_farm_population():
+    m = MapState(terrain={(0, 0): 'land'}, resources={(0, 0): 'crop'})
+    assert action_population(('build', (0, 0), 'farm'), m) == 2
+
+
+def test_build_mine_population():
+    m = MapState(terrain={(0, 0): 'mountain'}, resources={(0, 0): 'metal'})
+    assert action_population(('build', (0, 0), 'mine'), m) == 2
+
+
+def test_build_sawmill_population_depends_on_adjacency():
+    """Sawmill population = number of adjacent lumber huts."""
+    m = MapState(
+        terrain={(0, 0): 'land', (0, 1): 'land', (1, 0): 'land'},
+        resources={(0, 1): 'forest', (1, 0): 'forest'},
+        buildings={(0, 1): 'lumber_hut', (1, 0): 'lumber_hut'},
+    )
+    assert action_population(('build', (0, 0), 'sawmill'), m) == 2
+
+
+def test_harvest_population():
+    m = MapState(terrain={(0, 0): 'land'}, resources={(0, 0): 'animal'})
+    assert action_population(('harvest', (0, 0)), m) == 1

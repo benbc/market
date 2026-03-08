@@ -53,6 +53,41 @@ def action_cost(action, state):
     raise ValueError(f"Unknown action type: {action_type}")
 
 
+BUILDING_POPULATION = {
+    'lumber_hut': 1,
+    'farm': 2,
+    'mine': 2,
+}
+
+
+def action_population(action, state):
+    action_type = action[0]
+    if action_type == 'build':
+        pos, building = action[1], action[2]
+        if building in BUILDING_POPULATION:
+            return BUILDING_POPULATION[building]
+        if is_multiplier(building):
+            # Simulate placing the building to compute its level
+            from dataclasses import replace
+            new_state = replace(state, buildings={**state.buildings, pos: building})
+            return multiplier_level(pos, new_state)
+        return 0
+    if action_type == 'harvest':
+        pos = action[1]
+        resource = state.resource_at(pos)
+        return HARVEST_ACTIONS[resource]['population']
+    return 0
+
+
+def sequence_population(actions, initial_state):
+    total = 0
+    state = initial_state
+    for action in actions:
+        total += action_population(action, state)
+        state = apply_action(state, action)
+    return total
+
+
 def sequence_cost(actions, initial_state):
     total = 0
     state = initial_state
