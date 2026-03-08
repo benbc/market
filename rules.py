@@ -136,3 +136,8 @@ TERRAIN_ACTIONS = {
 }
 
 MAP_SHAPES = frozenset({11, 14, 18, 22, 30})
+
+HARVEST_ACTIONS = {
+    'animal': {'cost': 2, 'population': 1, 'tech': 'hunting'},
+    'fruit': {'cost': 2, 'population': 1, 'tech': 'organization'},
+}

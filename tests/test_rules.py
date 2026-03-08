@@ -5,6 +5,7 @@ from rules import (
     ONE_PER_CITY,
     TECHS, techs_unlocking_building, techs_unlocking_action, available_with_techs,
     TERRAIN_ACTIONS, MAP_SHAPES,
+    HARVEST_ACTIONS,
 )
 
 
@@ -180,3 +181,17 @@ def test_grow_forest_cost():
 def test_map_shapes():
     assert all(isinstance(s, int) for s in MAP_SHAPES)
     assert 11 in MAP_SHAPES
+
+
+def test_harvest_animal():
+    h = HARVEST_ACTIONS['animal']
+    assert h['cost'] == 2
+    assert h['population'] == 1
+    assert h['tech'] == 'hunting'
+
+
+def test_harvest_fruit():
+    h = HARVEST_ACTIONS['fruit']
+    assert h['cost'] == 2
+    assert h['population'] == 1
+    assert h['tech'] == 'organization'
