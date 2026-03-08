@@ -1,4 +1,4 @@
-from actions import make_action, apply_action
+from actions import make_action, apply_action, validate_action
 from map_state import MapState
 
 
@@ -128,3 +128,95 @@ def test_apply_harvest():
     action = ('harvest', (4, 5))
     m2 = apply_action(m, action)
     assert m2.resource_at((4, 5)) is None
+
+
+def test_validate_build_on_eligible_terrain():
+    m = MapState(
+        terrain={(0, 0): 'land'},
+        cities=({'id': 1, 'row': 0, 'col': 0, 'population': 1, 'border_level': 1},),
+    )
+    assert validate_action(m, ('build', (0, 0), 'sawmill'), techs=frozenset({'mathematics'})) is None
+
+
+def test_validate_build_on_ineligible_terrain():
+    m = MapState(
+        terrain={(0, 0): 'water'},
+        cities=({'id': 1, 'row': 0, 'col': 0, 'population': 1, 'border_level': 1},),
+    )
+    result = validate_action(m, ('build', (0, 0), 'sawmill'), techs=frozenset({'mathematics'}))
+    assert result is not None
+
+
+def test_validate_build_without_tech():
+    m = MapState(
+        terrain={(0, 0): 'land'},
+        cities=({'id': 1, 'row': 0, 'col': 0, 'population': 1, 'border_level': 1},),
+    )
+    result = validate_action(m, ('build', (0, 0), 'sawmill'), techs=frozenset())
+    assert result is not None
+
+
+def test_validate_build_on_occupied():
+    m = MapState(
+        terrain={(0, 0): 'land'},
+        buildings={(0, 0): 'farm'},
+        cities=({'id': 1, 'row': 0, 'col': 0, 'population': 1, 'border_level': 1},),
+    )
+    result = validate_action(m, ('build', (0, 0), 'sawmill'), techs=frozenset({'mathematics'}))
+    assert result is not None
+
+
+def test_validate_build_on_undefined():
+    m = MapState()
+    result = validate_action(m, ('build', (0, 0), 'sawmill'), techs=frozenset({'mathematics'}))
+    assert result is not None
+
+
+def test_validate_clear_forest_requires_forest():
+    m = MapState(
+        terrain={(0, 0): 'land'},
+        cities=({'id': 1, 'row': 0, 'col': 0, 'population': 1, 'border_level': 1},),
+    )
+    result = validate_action(m, ('clear_forest', (0, 0)), techs=frozenset({'forestry'}))
+    assert result is not None
+
+
+def test_validate_clear_forest_ok():
+    m = MapState(
+        terrain={(0, 0): 'land'},
+        resources={(0, 0): 'forest'},
+        cities=({'id': 1, 'row': 0, 'col': 0, 'population': 1, 'border_level': 1},),
+    )
+    assert validate_action(m, ('clear_forest', (0, 0)), techs=frozenset({'forestry'})) is None
+
+
+def test_validate_found_city_requires_village():
+    m = MapState(terrain={(0, 0): 'land'})
+    result = validate_action(m, ('found_city', (0, 0)), techs=frozenset())
+    assert result is not None
+
+
+def test_validate_found_city_ok():
+    m = MapState(terrain={(0, 0): 'land'}, villages=frozenset({(0, 0)}))
+    assert validate_action(m, ('found_city', (0, 0)), techs=frozenset()) is None
+
+
+def test_validate_build_one_per_city():
+    """Cannot build a second sawmill in the same city."""
+    m = MapState(
+        terrain={(r, c): 'land' for r in range(3) for c in range(3)},
+        buildings={(0, 0): 'sawmill'},
+        cities=({'id': 1, 'row': 1, 'col': 1, 'population': 1, 'border_level': 1},),
+    )
+    result = validate_action(m, ('build', (1, 1), 'sawmill'), techs=frozenset({'mathematics'}))
+    assert result is not None
+
+
+def test_validate_build_must_be_in_territory():
+    """Cannot build outside city territory."""
+    m = MapState(
+        terrain={(0, 0): 'land', (5, 5): 'land'},
+        cities=({'id': 1, 'row': 0, 'col': 0, 'population': 1, 'border_level': 1},),
+    )
+    result = validate_action(m, ('build', (5, 5), 'sawmill'), techs=frozenset({'mathematics'}))
+    assert result is not None
