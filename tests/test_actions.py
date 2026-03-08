@@ -56,3 +56,31 @@ def test_apply_build_preserves_terrain():
     assert m2.terrain_at((1, 1)) == 'mountain'
     assert m2.building_at((1, 1)) == 'mine'
     assert m2.building_at((0, 0)) == 'sawmill'
+
+
+def test_apply_clear_forest():
+    m = MapState(
+        terrain={(2, 3): 'land'},
+        resources={(2, 3): 'forest'},
+    )
+    action = ('clear_forest', (2, 3))
+    m2 = apply_action(m, action)
+    assert m2.resource_at((2, 3)) is None
+    assert m2.terrain_at((2, 3)) == 'land'
+
+
+def test_apply_burn_forest():
+    m = MapState(
+        terrain={(2, 3): 'land'},
+        resources={(2, 3): 'forest'},
+    )
+    action = ('burn_forest', (2, 3))
+    m2 = apply_action(m, action)
+    assert m2.resource_at((2, 3)) == 'crop'
+
+
+def test_apply_grow_forest():
+    m = MapState(terrain={(2, 3): 'land'})
+    action = ('grow_forest', (2, 3))
+    m2 = apply_action(m, action)
+    assert m2.resource_at((2, 3)) == 'forest'
