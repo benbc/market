@@ -1,4 +1,5 @@
-from actions import make_action
+from actions import make_action, apply_action
+from map_state import MapState
 
 
 def test_build_action():
@@ -34,3 +35,24 @@ def test_grow_forest_action():
 def test_harvest_action():
     a = make_action('harvest', (4, 5))
     assert a == ('harvest', (4, 5))
+
+
+def test_apply_build():
+    m = MapState(terrain={(3, 4): 'land'})
+    action = ('build', (3, 4), 'sawmill')
+    m2 = apply_action(m, action)
+    assert m2.building_at((3, 4)) == 'sawmill'
+    assert m.building_at((3, 4)) is None
+
+
+def test_apply_build_preserves_terrain():
+    m = MapState(
+        terrain={(0, 0): 'land', (1, 1): 'mountain'},
+        buildings={(1, 1): 'mine'},
+    )
+    action = ('build', (0, 0), 'sawmill')
+    m2 = apply_action(m, action)
+    assert m2.terrain_at((0, 0)) == 'land'
+    assert m2.terrain_at((1, 1)) == 'mountain'
+    assert m2.building_at((1, 1)) == 'mine'
+    assert m2.building_at((0, 0)) == 'sawmill'
