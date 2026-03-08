@@ -1,4 +1,4 @@
-from map_state import MapState
+from map_state import MapState, is_adjacent, adjacent_positions
 
 
 def test_empty_map():
@@ -135,3 +135,29 @@ def test_tiles_owned_by():
     assert (2, 2) in tiles
     assert (1, 1) in tiles
     assert len(tiles) == 9
+
+
+def test_adjacent_orthogonal():
+    assert is_adjacent((0, 0), (0, 1))
+    assert is_adjacent((0, 0), (1, 0))
+
+
+def test_adjacent_diagonal():
+    assert is_adjacent((0, 0), (1, 1))
+
+
+def test_not_adjacent():
+    assert not is_adjacent((0, 0), (0, 2))
+    assert not is_adjacent((0, 0), (2, 2))
+
+
+def test_not_adjacent_to_self():
+    assert not is_adjacent((0, 0), (0, 0))
+
+
+def test_adjacent_positions():
+    adj = adjacent_positions((1, 1))
+    assert len(adj) == 8
+    assert (0, 0) in adj
+    assert (1, 2) in adj
+    assert (1, 1) not in adj

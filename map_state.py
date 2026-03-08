@@ -1,6 +1,22 @@
 from dataclasses import dataclass, field
 
 
+def is_adjacent(a, b):
+    dr = abs(a[0] - b[0])
+    dc = abs(a[1] - b[1])
+    return max(dr, dc) == 1
+
+
+def adjacent_positions(pos):
+    r, c = pos
+    return frozenset(
+        (r + dr, c + dc)
+        for dr in (-1, 0, 1)
+        for dc in (-1, 0, 1)
+        if (dr, dc) != (0, 0)
+    )
+
+
 @dataclass(frozen=True)
 class MapState:
     terrain: dict = field(default_factory=dict)
