@@ -50,3 +50,21 @@ def can_build(building, terrain, resource):
     """Check if a building can be placed on a tile with the given terrain and resource."""
     defn = BUILDINGS[building]
     return (terrain, resource) in defn['eligible']
+
+
+MULTIPLIERS = {
+    'sawmill': {'resource': 'lumber_hut', 'weight': 1},
+    'windmill': {'resource': 'farm', 'weight': 1},
+    'forge': {'resource': 'mine', 'weight': 2},
+}
+
+MARKET_CAP = 8
+
+
+def multiplier_resource(building):
+    m = MULTIPLIERS[building]
+    return m['resource'], m['weight']
+
+
+def is_multiplier(building):
+    return building in MULTIPLIERS

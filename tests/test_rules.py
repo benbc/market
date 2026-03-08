@@ -1,6 +1,7 @@
 from rules import (
     TERRAIN_TYPES, RESOURCE_TYPES, valid_resources_for_terrain,
     can_build, BUILDINGS,
+    MULTIPLIERS, multiplier_resource, MARKET_CAP, is_multiplier,
 )
 
 
@@ -89,3 +90,32 @@ def test_market_on_crop():
 
 def test_market_not_on_forest():
     assert not can_build('market', terrain='land', resource='forest')
+
+
+def test_multipliers():
+    assert 'sawmill' in MULTIPLIERS
+    assert 'windmill' in MULTIPLIERS
+    assert 'forge' in MULTIPLIERS
+    assert 'market' not in MULTIPLIERS
+
+
+def test_multiplier_resource_sawmill():
+    resource, weight = multiplier_resource('sawmill')
+    assert resource == 'lumber_hut'
+    assert weight == 1
+
+
+def test_multiplier_resource_forge():
+    resource, weight = multiplier_resource('forge')
+    assert resource == 'mine'
+    assert weight == 2
+
+
+def test_market_cap():
+    assert MARKET_CAP == 8
+
+
+def test_is_multiplier():
+    assert is_multiplier('sawmill')
+    assert not is_multiplier('market')
+    assert not is_multiplier('farm')
