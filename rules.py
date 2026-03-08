@@ -68,3 +68,6 @@ def multiplier_resource(building):
 
 def is_multiplier(building):
     return building in MULTIPLIERS
+
+
+ONE_PER_CITY = frozenset({'sawmill', 'windmill', 'forge'})

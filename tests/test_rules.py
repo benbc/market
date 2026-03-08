@@ -2,6 +2,7 @@ from rules import (
     TERRAIN_TYPES, RESOURCE_TYPES, valid_resources_for_terrain,
     can_build, BUILDINGS,
     MULTIPLIERS, multiplier_resource, MARKET_CAP, is_multiplier,
+    ONE_PER_CITY,
 )
 
 
@@ -119,3 +120,11 @@ def test_is_multiplier():
     assert is_multiplier('sawmill')
     assert not is_multiplier('market')
     assert not is_multiplier('farm')
+
+
+def test_one_per_city():
+    assert 'sawmill' in ONE_PER_CITY
+    assert 'windmill' in ONE_PER_CITY
+    assert 'forge' in ONE_PER_CITY
+    assert 'market' not in ONE_PER_CITY
+    assert 'farm' not in ONE_PER_CITY
