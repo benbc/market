@@ -84,3 +84,47 @@ def test_apply_grow_forest():
     action = ('grow_forest', (2, 3))
     m2 = apply_action(m, action)
     assert m2.resource_at((2, 3)) == 'forest'
+
+
+def test_apply_found_city():
+    m = MapState(
+        terrain={(5, 5): 'land'},
+        villages=frozenset({(5, 5)}),
+    )
+    action = ('found_city', (5, 5))
+    m2 = apply_action(m, action)
+    assert len(m2.cities) == 1
+    assert m2.cities[0]['row'] == 5
+    assert m2.cities[0]['col'] == 5
+    assert m2.cities[0]['border_level'] == 1
+    assert (5, 5) not in m2.villages
+
+
+def test_found_city_assigns_id():
+    m = MapState(
+        terrain={(5, 5): 'land', (8, 8): 'land'},
+        villages=frozenset({(5, 5), (8, 8)}),
+    )
+    m2 = apply_action(m, ('found_city', (5, 5)))
+    m3 = apply_action(m2, ('found_city', (8, 8)))
+    assert m3.cities[0]['id'] != m3.cities[1]['id']
+
+
+def test_apply_expand_borders():
+    m = MapState(
+        terrain={(r, c): 'land' for r in range(5) for c in range(5)},
+        cities=({'id': 1, 'row': 2, 'col': 2, 'population': 1, 'border_level': 1},),
+    )
+    action = ('expand_borders', 1)
+    m2 = apply_action(m, action)
+    assert m2.cities[0]['border_level'] == 2
+
+
+def test_apply_harvest():
+    m = MapState(
+        terrain={(4, 5): 'land'},
+        resources={(4, 5): 'animal'},
+    )
+    action = ('harvest', (4, 5))
+    m2 = apply_action(m, action)
+    assert m2.resource_at((4, 5)) is None
