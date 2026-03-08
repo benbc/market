@@ -3,6 +3,7 @@ from rules import (
     can_build, BUILDINGS,
     MULTIPLIERS, multiplier_resource, MARKET_CAP, is_multiplier,
     ONE_PER_CITY,
+    TECHS, techs_unlocking_building, techs_unlocking_action, available_with_techs,
 )
 
 
@@ -128,3 +129,35 @@ def test_one_per_city():
     assert 'forge' in ONE_PER_CITY
     assert 'market' not in ONE_PER_CITY
     assert 'farm' not in ONE_PER_CITY
+
+
+def test_tech_tiers():
+    assert TECHS['climbing']['tier'] == 1
+    assert TECHS['mining']['tier'] == 2
+    assert TECHS['smithery']['tier'] == 3
+
+
+def test_tech_prerequisites():
+    assert TECHS['mining']['requires'] == 'climbing'
+    assert TECHS['climbing']['requires'] is None
+
+
+def test_techs_unlocking_building():
+    assert techs_unlocking_building('mine') == {'mining'}
+    assert techs_unlocking_building('sawmill') == {'mathematics'}
+    assert techs_unlocking_building('market') == {'trade'}
+
+
+def test_techs_unlocking_action():
+    assert techs_unlocking_action('clear_forest') == {'forestry'}
+    assert techs_unlocking_action('burn_forest') == {'construction'}
+    assert techs_unlocking_action('grow_forest') == {'spiritualism'}
+
+
+def test_available_with_techs():
+    available = available_with_techs(frozenset())
+    assert 'sawmill' not in available['buildings']
+    available = available_with_techs(frozenset({'mathematics'}))
+    assert 'sawmill' in available['buildings']
+    available = available_with_techs(frozenset({'forestry'}))
+    assert 'clear_forest' in available['actions']
