@@ -1,4 +1,4 @@
-from economics import market_income, total_income, multiplier_level
+from economics import market_income, total_income, multiplier_level, action_cost, sequence_cost
 from map_state import MapState
 
 
@@ -49,3 +49,45 @@ def test_total_income():
         buildings={(0, 0): 'sawmill', (0, 1): 'lumber_hut', (1, 0): 'market'},
     )
     assert total_income(m) == 1
+
+
+def test_build_cost():
+    m = MapState(terrain={(0, 0): 'land'})
+    action = ('build', (0, 0), 'sawmill')
+    assert action_cost(action, m) == 5
+
+
+def test_clear_forest_negative_cost():
+    m = MapState(terrain={(0, 0): 'land'}, resources={(0, 0): 'forest'})
+    action = ('clear_forest', (0, 0))
+    assert action_cost(action, m) == -1
+
+
+def test_burn_forest_cost():
+    m = MapState(terrain={(0, 0): 'land'}, resources={(0, 0): 'forest'})
+    action = ('burn_forest', (0, 0))
+    assert action_cost(action, m) == 3
+
+
+def test_grow_forest_cost():
+    m = MapState(terrain={(0, 0): 'land'})
+    action = ('grow_forest', (0, 0))
+    assert action_cost(action, m) == 5
+
+
+def test_harvest_cost():
+    m = MapState(terrain={(0, 0): 'land'}, resources={(0, 0): 'animal'})
+    action = ('harvest', (0, 0))
+    assert action_cost(action, m) == 2
+
+
+def test_sequence_cost():
+    m = MapState(
+        terrain={(0, 0): 'land', (1, 1): 'land'},
+        resources={(0, 0): 'forest'},
+    )
+    actions = [
+        ('clear_forest', (0, 0)),
+        ('build', (0, 0), 'sawmill'),
+    ]
+    assert sequence_cost(actions, m) == -1 + 5

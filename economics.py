@@ -1,5 +1,9 @@
 from map_state import adjacent_positions
-from rules import MULTIPLIERS, multiplier_resource, MARKET_CAP, is_multiplier
+from rules import (
+    MULTIPLIERS, multiplier_resource, MARKET_CAP, is_multiplier,
+    BUILDINGS, TERRAIN_ACTIONS, HARVEST_ACTIONS,
+)
+from actions import apply_action
 
 
 def multiplier_level(pos, state):
@@ -27,3 +31,32 @@ def total_income(state):
         for pos, bldg in state.buildings.items()
         if bldg == 'market'
     )
+
+
+def action_cost(action, state):
+    action_type = action[0]
+    if action_type == 'build':
+        building = action[2]
+        return BUILDINGS[building]['cost']
+    if action_type == 'clear_forest':
+        return -TERRAIN_ACTIONS['clear_forest']['yield']
+    if action_type == 'burn_forest':
+        return TERRAIN_ACTIONS['burn_forest']['cost']
+    if action_type == 'grow_forest':
+        return TERRAIN_ACTIONS['grow_forest']['cost']
+    if action_type == 'harvest':
+        pos = action[1]
+        resource = state.resource_at(pos)
+        return HARVEST_ACTIONS[resource]['cost']
+    if action_type in ('found_city', 'expand_borders'):
+        return 0
+    raise ValueError(f"Unknown action type: {action_type}")
+
+
+def sequence_cost(actions, initial_state):
+    total = 0
+    state = initial_state
+    for action in actions:
+        total += action_cost(action, state)
+        state = apply_action(state, action)
+    return total
