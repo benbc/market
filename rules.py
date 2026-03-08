@@ -127,3 +127,12 @@ def available_with_techs(techs):
             buildings.update(tech['unlocks_buildings'])
             actions.update(tech['unlocks_actions'])
     return {'buildings': buildings, 'actions': actions}
+
+
+TERRAIN_ACTIONS = {
+    'clear_forest': {'cost': 0, 'yield': 1},
+    'burn_forest': {'cost': 3},
+    'grow_forest': {'cost': 5},
+}
+
+MAP_SHAPES = frozenset({11, 14, 18, 22, 30})

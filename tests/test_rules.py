@@ -4,6 +4,7 @@ from rules import (
     MULTIPLIERS, multiplier_resource, MARKET_CAP, is_multiplier,
     ONE_PER_CITY,
     TECHS, techs_unlocking_building, techs_unlocking_action, available_with_techs,
+    TERRAIN_ACTIONS, MAP_SHAPES,
 )
 
 
@@ -161,3 +162,21 @@ def test_available_with_techs():
     assert 'sawmill' in available['buildings']
     available = available_with_techs(frozenset({'forestry'}))
     assert 'clear_forest' in available['actions']
+
+
+def test_clear_forest_yield():
+    assert TERRAIN_ACTIONS['clear_forest']['cost'] == 0
+    assert TERRAIN_ACTIONS['clear_forest']['yield'] == 1
+
+
+def test_burn_forest_cost():
+    assert TERRAIN_ACTIONS['burn_forest']['cost'] == 3
+
+
+def test_grow_forest_cost():
+    assert TERRAIN_ACTIONS['grow_forest']['cost'] == 5
+
+
+def test_map_shapes():
+    assert all(isinstance(s, int) for s in MAP_SHAPES)
+    assert 11 in MAP_SHAPES
