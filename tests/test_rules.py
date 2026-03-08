@@ -1,4 +1,7 @@
-from rules import TERRAIN_TYPES, RESOURCE_TYPES, valid_resources_for_terrain
+from rules import (
+    TERRAIN_TYPES, RESOURCE_TYPES, valid_resources_for_terrain,
+    can_build, BUILDINGS,
+)
 
 
 def test_terrain_types():
@@ -39,3 +42,50 @@ def test_animal_on_land():
 
 def test_fruit_on_land():
     assert 'fruit' in valid_resources_for_terrain('land')
+
+
+def test_sawmill_on_land():
+    assert can_build('sawmill', terrain='land', resource=None)
+
+
+def test_sawmill_on_land_with_crop():
+    assert can_build('sawmill', terrain='land', resource='crop')
+
+
+def test_sawmill_not_on_mountain():
+    assert not can_build('sawmill', terrain='mountain', resource=None)
+
+
+def test_lumber_hut_requires_forest():
+    assert can_build('lumber_hut', terrain='land', resource='forest')
+    assert not can_build('lumber_hut', terrain='land', resource=None)
+
+
+def test_farm_requires_crop():
+    assert can_build('farm', terrain='land', resource='crop')
+    assert not can_build('farm', terrain='land', resource=None)
+
+
+def test_mine_requires_metal():
+    assert can_build('mine', terrain='mountain', resource='metal')
+    assert not can_build('mine', terrain='mountain', resource=None)
+
+
+def test_forge_on_forest():
+    assert can_build('forge', terrain='land', resource='forest')
+
+
+def test_forge_on_land():
+    assert can_build('forge', terrain='land', resource=None)
+
+
+def test_market_on_land():
+    assert can_build('market', terrain='land', resource=None)
+
+
+def test_market_on_crop():
+    assert can_build('market', terrain='land', resource='crop')
+
+
+def test_market_not_on_forest():
+    assert not can_build('market', terrain='land', resource='forest')
