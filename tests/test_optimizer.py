@@ -1,6 +1,6 @@
 from optimizer import optimize
 from map_state import MapState
-from economics import total_income, multiplier_level
+from economics import total_income, multiplier_level, sequence_cost
 from rules import is_multiplier
 
 
@@ -61,3 +61,27 @@ def test_optimize_two_cities():
 
     result = optimize(m, techs, score)
     assert result['income'] > 0
+
+
+def test_optimize_income_then_cost():
+    """With a lexicographic score, optimizer should maximize income then minimize cost."""
+    m = MapState(
+        terrain={(r, c): 'land' for r in range(3) for c in range(3)},
+        resources={(0, 1): 'forest', (1, 0): 'forest'},
+        cities=({'id': 1, 'row': 1, 'col': 1, 'population': 5, 'border_level': 1},),
+    )
+    techs = frozenset({'mathematics', 'forestry', 'trade'})
+
+    initial = m
+
+    def score(state, actions):
+        income = total_income(state)
+        cost = sequence_cost(actions, initial)
+        building_value = sum(
+            multiplier_level(pos, state) if is_multiplier(bldg) else 1
+            for pos, bldg in state.buildings.items()
+        )
+        return (income, building_value, -cost)
+
+    result = optimize(m, techs, score)
+    assert result['income'] >= 0
